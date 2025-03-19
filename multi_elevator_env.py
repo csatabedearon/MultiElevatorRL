@@ -10,7 +10,7 @@ class MultiElevatorEnv(gym.Env):
     An extended elevator environment with multiple elevators and 10 floors.
     The goal is to minimize passenger waiting time.
     """
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1000}
 
     def __init__(self, render_mode=None, max_steps=500, passenger_rate=0.1, num_elevators=3):
         self.num_floors = 10  # 10 floors in total
@@ -125,6 +125,92 @@ class MultiElevatorEnv(gym.Env):
         
         return passenger_id
     
+    def calculate_reward(self):
+        """Calculate reward balancing passenger waiting time and movement efficiency"""
+        # Base reward
+        reward = -0.1
+        
+        # Movement penalty - increased from V6 but not as strict as V7
+        movement_penalty = 0
+        for elev_id in range(self.num_elevators):
+            if self.elevator_directions[elev_id] != 0:
+                # Check if elevator has passengers or is moving toward waiting passengers
+                has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
+                moving_to_pickup = False
+                
+                # Check if moving toward a floor with waiting passengers
+                curr_pos = self.elevator_positions[elev_id]
+                curr_dir = self.elevator_directions[elev_id]
+                
+                if curr_dir == 1:  # Moving up
+                    for floor in range(curr_pos + 1, self.num_floors):
+                        if self.waiting_passengers[floor] > 0:
+                            moving_to_pickup = True
+                            break
+                elif curr_dir == 2:  # Moving down
+                    for floor in range(curr_pos - 1, -1, -1):
+                        if self.waiting_passengers[floor] > 0:
+                            moving_to_pickup = True
+                            break
+                
+                # Apply penalty with different weights based on purpose
+                if has_passengers or moving_to_pickup:
+                    movement_penalty -= 0.2  # Reduced penalty for purposeful movement
+                else:
+                    movement_penalty -= 0.4  # Higher penalty for "speculative" movement
+        
+        # Pickup reward with slight emphasis on fast pickups
+        pickup_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            if data["wait_end"] == self.current_step:
+                waiting_duration = data["wait_end"] - data["wait_start"]
+                # Exponentially decreasing reward based on wait time
+                pickup_reward += 7.0 * (0.9 ** waiting_duration)
+        
+        # Delivery reward with significant bonus for quick service
+        delivery_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            if data["travel_end"] == self.current_step:
+                delivery_reward += 10.0
+                total_trip_time = data["travel_end"] - data["wait_start"]
+                # More generous time bonus
+                time_bonus = 15.0 * (0.95 ** total_trip_time)
+                delivery_reward += time_bonus
+        
+        # Strategic positioning reward - encourage elevators to distribute across floors
+        positioning_reward = 0
+        positions = self.elevator_positions.copy()
+        positions.sort()
+        
+        # Reward for maintaining good spacing between elevators
+        for i in range(1, len(positions)):
+            gap = positions[i] - positions[i-1]
+            ideal_gap = self.num_floors / self.num_elevators
+            # Reward for approaching ideal gap
+            if abs(gap - ideal_gap) <= 2:
+                positioning_reward += 0.2
+        
+        # Waiting time penalty with progressive scaling
+        waiting_penalty = 0
+        for passenger_id, data in self.waiting_time.items():
+            if data["wait_end"] is None:
+                wait_duration = self.current_step - data["wait_start"]
+                # Progressive penalty that grows more quickly after threshold
+                if wait_duration <= 8:
+                    waiting_penalty -= 0.1 * wait_duration
+                else:
+                    waiting_penalty -= 0.1 * 8 + 0.4 * (wait_duration - 8)
+        
+        # Combine all components
+        total_reward = (reward + 
+                        movement_penalty + 
+                        pickup_reward + 
+                        delivery_reward + 
+                        positioning_reward + 
+                        waiting_penalty)
+        
+        return total_reward
+
     def step(self, action):
         # Increment step counter
         self.current_step += 1
@@ -156,17 +242,22 @@ class MultiElevatorEnv(gym.Env):
             if data["wait_end"] is None:  # Passenger still waiting
                 pass  # Waiting time is tracked by step count difference
 
+        # calculate reward with the function
+        reward = self.calculate_reward()
+
         # Calculate reward (negative total waiting time and passengers in elevators)
-        reward = -(np.sum(self.waiting_passengers) + 
-                  sum(len(passengers) for passengers in self.passengers_in_elevators))
+        # reward = -(np.sum(self.waiting_passengers) + 
+        #          sum(len(passengers) for passengers in self.passengers_in_elevators))
         
         # penalty for movement
-        reward -= 0.5 * np.sum(np.array(action) != 0)
+        # old reward 0.5*
+        #reward -= 0.75 * np.sum(np.array(action) != 0)
         
         # Extra penalty if there is no demand but elevators are moving
-        if (np.sum(self.waiting_passengers) == 0 and 
-            sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
-            reward -= np.sum(np.array(action) != 0)
+        # old reward: reward -= np.sum(np.array(action) != 0
+        #if (np.sum(self.waiting_passengers) == 0 and 
+        #    sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
+        #    reward -= 3 * np.sum(np.array(action) != 0)
 
         # Check if episode is done
         terminated = self.current_step >= self.max_steps

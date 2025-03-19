@@ -39,4 +39,4 @@ model = PPO(
 model.learn(total_timesteps=1_000_000, callback=eval_callback)
 
 # Save the final model
-model.save("ppo_multi_elevator_final_05_arrival_newReward.zip")
+model.save("ppo_multi_elevator_v8_01AR.zip")

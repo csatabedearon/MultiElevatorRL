@@ -1,0 +1,284 @@
+V1:
+reward = -(np.sum(self.waiting_passengers) + 
+                  sum(len(passengers) for passengers in self.passengers_in_elevators))
+        
+        # penalty for movement
+        # old reward 0.5*
+        reward -= 1 * np.sum(np.array(action) != 0)
+        
+        # Extra penalty if there is no demand but elevators are moving
+        # old reward: reward -= np.sum(np.array(action) != 0
+        if (np.sum(self.waiting_passengers) == 0 and 
+            sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
+            reward -= 2 * np.sum(np.array(action) != 0)
+
+
+The average total movements across the 10 runs is 272.4, 
+and the average waiting time is 18.94 steps. ​
+
+V2:
+# Calculate reward (negative total waiting time and passengers in elevators)
+        reward = -(np.sum(self.waiting_passengers) + 
+                  sum(len(passengers) for passengers in self.passengers_in_elevators))
+        
+        # penalty for movement
+        # old reward 0.5*
+        reward -= 0.75 * np.sum(np.array(action) != 0)
+        
+        # Extra penalty if there is no demand but elevators are moving
+        # old reward: reward -= np.sum(np.array(action) != 0
+        if (np.sum(self.waiting_passengers) == 0 and 
+            sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
+            reward -= 2 * np.sum(np.array(action) != 0)
+
+The average total movements across the 9 runs is **217.33**,
+and the average waiting time is **15.89 steps**.
+
+V3:
+reward = -(np.sum(self.waiting_passengers) + 
+                  sum(len(passengers) for passengers in self.passengers_in_elevators))
+        
+        # penalty for movement
+        # old reward 0.5*
+        reward -= 0.75 * np.sum(np.array(action) != 0)
+        
+        # Extra penalty if there is no demand but elevators are moving
+        # old reward: reward -= np.sum(np.array(action) != 0
+        if (np.sum(self.waiting_passengers) == 0 and 
+            sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
+            reward -= 3 * np.sum(np.array(action) != 0)
+
+The average total movements across the 10 runs is **228.2**,
+and the average waiting time is **21.48 steps**.
+
+V4:
+# Calculate reward (negative total waiting time and passengers in elevators)
+        reward = -(np.sum(self.waiting_passengers) + 
+                  sum(len(passengers) for passengers in self.passengers_in_elevators))
+        
+        # penalty for movement
+        # old reward 0.5*
+        #reward -= 0.75 * np.sum(np.array(action) != 0)
+        
+        # Extra penalty if there is no demand but elevators are moving
+        # old reward: reward -= np.sum(np.array(action) != 0
+        #if (np.sum(self.waiting_passengers) == 0 and 
+        #    sum(len(passengers) for passengers in self.passengers_in_elevators) == 0):
+        #    reward -= 3 * np.sum(np.array(action) != 0)
+
+The average total movements across the 10 runs is **498.1**,
+and the average waiting time is **8.22 steps**.
+
+V5:
+def calculate_reward(self):
+        """Calculate reward based on passenger waiting time and elevator efficiency"""
+        # Base reward - small negative reward for each step to encourage efficiency
+        reward = -0.1
+        
+        # Reward for picking up waiting passengers
+        pickup_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            # If a passenger was picked up this step
+            if data["wait_end"] == self.current_step:
+                # Reward based on how quickly the passenger was picked up
+                waiting_duration = data["wait_end"] - data["wait_start"]
+                pickup_reward += 5.0 - min(5.0, waiting_duration * 0.5)
+        
+        # Reward for delivering passengers to their destinations
+        delivery_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            # If a passenger reached their destination this step
+            if data["travel_end"] == self.current_step:
+                # Base reward for successful delivery
+                delivery_reward += 10.0
+                
+                # Additional reward based on total trip time (waiting + travel)
+                total_trip_time = data["travel_end"] - data["wait_start"]
+                time_bonus = max(0, 20.0 - total_trip_time)
+                delivery_reward += time_bonus
+        
+        # Penalty for idle elevators (not moving and not serving passengers)
+        idle_penalty = 0
+        for elev_id in range(self.num_elevators):
+            if (self.elevator_directions[elev_id] == 0 and 
+                len(self.passengers_in_elevators[elev_id]) == 0 and
+                np.sum(self.waiting_passengers) > 0):
+                idle_penalty -= 0.5
+        
+        # Penalty for excessive waiting
+        waiting_penalty = 0
+        for passenger_id, data in self.waiting_time.items():
+            if data["wait_end"] is None:  # Still waiting for pickup
+                wait_duration = self.current_step - data["wait_start"]
+                if wait_duration > 10:  # Penalize long waits more heavily
+                    waiting_penalty -= 0.2 * (wait_duration - 10)
+        
+        # Combine all reward components
+        total_reward = reward + pickup_reward + delivery_reward + idle_penalty + waiting_penalty
+        
+        return total_reward
+
+reward = self.calculate_reward()
+The average total movements across the 10 runs is **500.0**,
+and the average waiting time is **8.65 steps**.
+
+v6:
+def calculate_reward(self):
+        """Calculate reward based on passenger waiting time and elevator movement efficiency"""
+        # Base reward - small negative reward for each step to encourage efficiency
+        reward = -0.1
+        
+        # Penalty for movement (to encourage fewer movements)
+        movement_penalty = 0
+        for elev_id in range(self.num_elevators):
+            # Check if elevator moved this step (direction is not idle)
+            if self.elevator_directions[elev_id] != 0:
+                movement_penalty -= 0.3  # Penalty for each elevator movement
+        
+        # Reward for picking up waiting passengers
+        pickup_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            # If a passenger was picked up this step
+            if data["wait_end"] == self.current_step:
+                # Reward based on how quickly the passenger was picked up
+                waiting_duration = data["wait_end"] - data["wait_start"]
+                pickup_reward += 6.0 - min(5.0, waiting_duration * 0.5)
+        
+        # Reward for delivering passengers to their destinations
+        delivery_reward = 0
+        for passenger_id, data in self.waiting_time.items():
+            # If a passenger reached their destination this step
+            if data["travel_end"] == self.current_step:
+                # Base reward for successful delivery
+                delivery_reward += 12.0
+                
+                # Additional reward based on total trip time (waiting + travel)
+                total_trip_time = data["travel_end"] - data["wait_start"]
+                time_bonus = max(0, 20.0 - total_trip_time)
+                delivery_reward += time_bonus
+        
+        # Penalty for idle elevators only when they should be moving
+        idle_penalty = 0
+        for elev_id in range(self.num_elevators):
+            if (self.elevator_directions[elev_id] == 0 and 
+                len(self.passengers_in_elevators[elev_id]) == 0):
+                # Check if there are waiting passengers
+                if np.sum(self.waiting_passengers) > 0:
+                    idle_penalty -= 0.5
+        
+        # Penalty for excessive waiting
+        waiting_penalty = 0
+        for passenger_id, data in self.waiting_time.items():
+            if data["wait_end"] is None:  # Still waiting for pickup
+                wait_duration = self.current_step - data["wait_start"]
+                if wait_duration > 10:  # Penalize long waits more heavily
+                    waiting_penalty -= 0.3 * (wait_duration - 10)
+        
+        # Combine all reward components
+        total_reward = reward + movement_penalty + pickup_reward + delivery_reward + idle_penalty + waiting_penalty
+        
+        return total_reward
+
+The average total movements across the 10 runs is **483.1**,
+and the average waiting time is **8.51 steps**.\
+
+V7:
+# Penalty for movement (to encourage fewer movements)
+        movement_penalty = 0
+        for elev_id in range(self.num_elevators):
+            # Check if elevator moved this step (direction is not idle)
+            if self.elevator_directions[elev_id] != 0:
+                movement_penalty -= 0.5  # Penalty for each elevator movement old 0.3
+
+The average total movements across the 10 runs is **440.3**,
+and the average waiting time is **11.97 steps**.
+
+V8:
+def calculate_reward(self):
+    """Calculate reward balancing passenger waiting time and movement efficiency"""
+    # Base reward
+    reward = -0.1
+    
+    # Movement penalty - increased from V6 but not as strict as V7
+    movement_penalty = 0
+    for elev_id in range(self.num_elevators):
+        if self.elevator_directions[elev_id] != 0:
+            # Check if elevator has passengers or is moving toward waiting passengers
+            has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
+            moving_to_pickup = False
+            
+            # Check if moving toward a floor with waiting passengers
+            curr_pos = self.elevator_positions[elev_id]
+            curr_dir = self.elevator_directions[elev_id]
+            
+            if curr_dir == 1:  # Moving up
+                for floor in range(curr_pos + 1, self.num_floors):
+                    if self.waiting_passengers[floor] > 0:
+                        moving_to_pickup = True
+                        break
+            elif curr_dir == 2:  # Moving down
+                for floor in range(curr_pos - 1, -1, -1):
+                    if self.waiting_passengers[floor] > 0:
+                        moving_to_pickup = True
+                        break
+            
+            # Apply penalty with different weights based on purpose
+            if has_passengers or moving_to_pickup:
+                movement_penalty -= 0.2  # Reduced penalty for purposeful movement
+            else:
+                movement_penalty -= 0.4  # Higher penalty for "speculative" movement
+    
+    # Pickup reward with slight emphasis on fast pickups
+    pickup_reward = 0
+    for passenger_id, data in self.waiting_time.items():
+        if data["wait_end"] == self.current_step:
+            waiting_duration = data["wait_end"] - data["wait_start"]
+            # Exponentially decreasing reward based on wait time
+            pickup_reward += 7.0 * (0.9 ** waiting_duration)
+    
+    # Delivery reward with significant bonus for quick service
+    delivery_reward = 0
+    for passenger_id, data in self.waiting_time.items():
+        if data["travel_end"] == self.current_step:
+            delivery_reward += 10.0
+            total_trip_time = data["travel_end"] - data["wait_start"]
+            # More generous time bonus
+            time_bonus = 15.0 * (0.95 ** total_trip_time)
+            delivery_reward += time_bonus
+    
+    # Strategic positioning reward - encourage elevators to distribute across floors
+    positioning_reward = 0
+    positions = self.elevator_positions.copy()
+    positions.sort()
+    
+    # Reward for maintaining good spacing between elevators
+    for i in range(1, len(positions)):
+        gap = positions[i] - positions[i-1]
+        ideal_gap = self.num_floors / self.num_elevators
+        # Reward for approaching ideal gap
+        if abs(gap - ideal_gap) <= 2:
+            positioning_reward += 0.2
+    
+    # Waiting time penalty with progressive scaling
+    waiting_penalty = 0
+    for passenger_id, data in self.waiting_time.items():
+        if data["wait_end"] is None:
+            wait_duration = self.current_step - data["wait_start"]
+            # Progressive penalty that grows more quickly after threshold
+            if wait_duration <= 8:
+                waiting_penalty -= 0.1 * wait_duration
+            else:
+                waiting_penalty -= 0.1 * 8 + 0.4 * (wait_duration - 8)
+    
+    # Combine all components
+    total_reward = (reward + 
+                    movement_penalty + 
+                    pickup_reward + 
+                    delivery_reward + 
+                    positioning_reward + 
+                    waiting_penalty)
+    
+    return total_reward
+
+The average total movements across the 10 runs is **433.3**,
+and the average waiting time is **13.04 steps**.
