@@ -20,7 +20,7 @@ eval_env = MultiElevatorEnv(render_mode=None)
 # Set up evaluation callback
 eval_callback = EvalCallback(
     eval_env,
-    best_model_save_path="./best_model/",
+    best_model_save_path="./best_model_v9/",
     log_path="./logs/",
     eval_freq=2_083,  # Evaluate every 10,000 steps
     deterministic=True,
@@ -39,4 +39,4 @@ model = PPO(
 model.learn(total_timesteps=1_000_000, callback=eval_callback)
 
 # Save the final model
-model.save("ppo_multi_elevator_v8_01AR.zip")
+model.save("ppo_multi_elevator_v9_01AR.zip")

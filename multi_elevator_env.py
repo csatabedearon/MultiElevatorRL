@@ -120,120 +120,572 @@ class MultiElevatorEnv(gym.Env):
         
         return passenger_id
     
+    # def calculate_reward(self):
+    #     """Calculate reward balancing waiting time, pickups, deliveries and movement efficiency"""
+    #     # Base reward
+    #     reward = -0.1
+        
+    #     # Movement penalty
+    #     movement_penalty = self._calculate_movement_penalty()
+        
+    #     # Pickup and delivery rewards
+    #     pickup_reward = self._calculate_pickup_reward()
+    #     delivery_reward = self._calculate_delivery_reward()
+        
+    #     # Strategic positioning reward
+    #     positioning_reward = self._calculate_positioning_reward()
+        
+    #     # Waiting time penalty
+    #     waiting_penalty = self._calculate_waiting_penalty()
+        
+    #     # Combine all components
+    #     total_reward = (reward + 
+    #                     movement_penalty + 
+    #                     pickup_reward + 
+    #                     delivery_reward + 
+    #                     positioning_reward + 
+    #                     waiting_penalty)
+        
+    #     return total_reward
+    
+    # def _calculate_movement_penalty(self):
+    #     """Calculate penalty for elevator movement"""
+    #     movement_penalty = 0
+    #     for elev_id in range(self.num_elevators):
+    #         if self.elevator_directions[elev_id] != 0:
+    #             # Check if elevator has passengers or is moving toward waiting passengers
+    #             has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
+    #             moving_to_pickup = self._is_moving_to_pickup(elev_id)
+                
+    #             # Apply penalty with different weights based on purpose
+    #             if has_passengers or moving_to_pickup:
+    #                 movement_penalty -= 0.2  # Reduced penalty for purposeful movement
+    #             else:
+    #                 movement_penalty -= 0.4  # Higher penalty for "speculative" movement
+        
+    #     return movement_penalty
+    
+    # def _is_moving_to_pickup(self, elevator_id):
+    #     """Check if elevator is moving toward waiting passengers"""
+    #     curr_pos = self.elevator_positions[elevator_id]
+    #     curr_dir = self.elevator_directions[elevator_id]
+        
+    #     if curr_dir == 1:  # Moving up
+    #         for floor in range(curr_pos + 1, self.num_floors):
+    #             if self.waiting_passengers[floor] > 0:
+    #                 return True
+    #     elif curr_dir == 2:  # Moving down
+    #         for floor in range(curr_pos - 1, -1, -1):
+    #             if self.waiting_passengers[floor] > 0:
+    #                 return True
+        
+    #     return False
+    
+    # def _calculate_pickup_reward(self):
+    #     """Calculate reward for picking up passengers"""
+    #     pickup_reward = 0
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["wait_end"] == self.current_step:
+    #             waiting_duration = data["wait_end"] - data["wait_start"]
+    #             # Exponentially decreasing reward based on wait time
+    #             pickup_reward += 7.0 * (0.9 ** waiting_duration)
+        
+    #     return pickup_reward
+    
+    # def _calculate_delivery_reward(self):
+    #     """Calculate reward for delivering passengers"""
+    #     delivery_reward = 0
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["travel_end"] == self.current_step:
+    #             delivery_reward += 10.0
+    #             total_trip_time = data["travel_end"] - data["wait_start"]
+    #             # More generous time bonus
+    #             time_bonus = 15.0 * (0.95 ** total_trip_time)
+    #             delivery_reward += time_bonus
+        
+    #     return delivery_reward
+    
+    # def _calculate_positioning_reward(self):
+    #     """Calculate reward for strategic positioning of elevators"""
+    #     positioning_reward = 0
+    #     positions = self.elevator_positions.copy()
+    #     positions.sort()
+        
+    #     # Reward for maintaining good spacing between elevators
+    #     for i in range(1, len(positions)):
+    #         gap = positions[i] - positions[i-1]
+    #         ideal_gap = self.num_floors / self.num_elevators
+    #         # Reward for approaching ideal gap
+    #         if abs(gap - ideal_gap) <= 2:
+    #             positioning_reward += 0.2
+        
+    #     return positioning_reward
+    
+    # def _calculate_waiting_penalty(self):
+    #     """Calculate penalty for passenger waiting time"""
+    #     waiting_penalty = 0
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["wait_end"] is None:
+    #             wait_duration = self.current_step - data["wait_start"]
+    #             # Progressive penalty that grows more quickly after threshold
+    #             if wait_duration <= 8:
+    #                 waiting_penalty -= 0.1 * wait_duration
+    #             else:
+    #                 waiting_penalty -= 0.1 * 8 + 0.4 * (wait_duration - 8)
+        
+    #     return waiting_penalty
+
+    # def calculate_reward(self):
+    #     """Improved reward calculation to prioritize efficient passenger delivery"""
+    #     # Base reward
+    #     reward = 0  # Neutral base reward
+        
+    #     # Movement efficiency rewards/penalties
+    #     movement_reward = self._calculate_movement_reward()
+        
+    #     # Pickup and delivery rewards
+    #     pickup_reward = self._calculate_pickup_reward()
+    #     delivery_reward = self._calculate_delivery_reward()
+        
+    #     # Waiting and travel time penalties
+    #     time_penalty = self._calculate_time_penalty()
+        
+    #     # Combine all components
+    #     total_reward = (reward + 
+    #                     movement_reward + 
+    #                     pickup_reward + 
+    #                     delivery_reward + 
+    #                     time_penalty)
+
+    #     return total_reward
+
+    # def _calculate_movement_reward(self):
+    #     """Calculate rewards/penalties for elevator movement decisions"""
+    #     movement_reward = 0
+        
+    #     for elev_id in range(self.num_elevators):
+    #         elev_pos = self.elevator_positions[elev_id]
+    #         elev_dir = self.elevator_directions[elev_id]
+            
+    #         # Check if elevator has passengers
+    #         has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
+            
+    #         # Idle penalty only when carrying passengers or when there are passengers to pickup
+    #         if elev_dir == 0 and has_passengers:
+    #             movement_reward -= 1.0  # Significant penalty for standing still with passengers
+            
+    #         # Check if elevator is moving toward passenger destinations or pickups
+    #         if has_passengers:
+    #             # Check if moving toward destinations of passengers in the elevator
+    #             moving_to_destination = self._is_moving_to_destination(elev_id)
+    #             if moving_to_destination and elev_dir != 0:
+    #                 movement_reward += 0.5  # Reward for heading to destinations
+                
+    #             # Check if moving away from all relevant destinations
+    #             elif elev_dir == 1:  # Moving up
+    #                 has_dest_above = False
+    #                 # Safely check if any destination is above current position
+    #                 for p_id in self.passengers_in_elevators[elev_id]:
+    #                     if p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] > elev_pos:
+    #                         has_dest_above = True
+    #                         break
+                    
+    #                 if not has_dest_above:
+    #                     # Also check if there are waiting passengers above
+    #                     waiting_above = any(self.waiting_passengers[floor] > 0 for floor in range(elev_pos + 1, self.num_floors))
+    #                     if not waiting_above:
+    #                         movement_reward -= 0.8  # Penalty for moving away from all destinations and pickups
+                
+    #             elif elev_dir == 2:  # Moving down
+    #                 has_dest_below = False
+    #                 # Safely check if any destination is below current position
+    #                 for p_id in self.passengers_in_elevators[elev_id]:
+    #                     if p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] < elev_pos:
+    #                         has_dest_below = True
+    #                         break
+                    
+    #                 if not has_dest_below:
+    #                     # Also check if there are waiting passengers below
+    #                     waiting_below = any(self.waiting_passengers[floor] > 0 for floor in range(0, elev_pos))
+    #                     if not waiting_below:
+    #                         movement_reward -= 0.8  # Penalty for moving away from all destinations and pickups
+            
+    #         # If no passengers in elevator, check if moving toward waiting passengers
+    #         elif not has_passengers and elev_dir != 0:
+    #             # Check for waiting passengers in movement direction
+    #             if elev_dir == 1:  # Moving up
+    #                 waiting_above = any(self.waiting_passengers[floor] > 0 for floor in range(elev_pos + 1, self.num_floors))
+    #                 if waiting_above:
+    #                     movement_reward += 0.3  # Reward for moving toward waiting passengers
+    #                 else:
+    #                     movement_reward -= 0.2  # Penalty for moving away from all waiting passengers
+                
+    #             elif elev_dir == 2:  # Moving down
+    #                 waiting_below = any(self.waiting_passengers[floor] > 0 for floor in range(0, elev_pos))
+    #                 if waiting_below:
+    #                     movement_reward += 0.3  # Reward for moving toward waiting passengers
+    #                 else:
+    #                     movement_reward -= 0.2  # Penalty for moving away from all waiting passengers
+
+    #     return movement_reward
+
+    # def _is_moving_to_destination(self, elevator_id):
+    #     """Check if elevator is moving toward passenger destinations"""
+    #     curr_pos = self.elevator_positions[elevator_id]
+    #     curr_dir = self.elevator_directions[elevator_id]
+        
+    #     # If the elevator isn't moving, it can't be moving to a destination
+    #     if curr_dir == 0:
+    #         return False
+            
+    #     # Check if any passengers in this elevator need to go in the current direction
+    #     for passenger_id in self.passengers_in_elevators[elevator_id]:
+    #         # Safely check if the passenger exists in the waiting_time dictionary
+    #         if passenger_id not in self.waiting_time:
+    #             continue
+                
+    #         dest_floor = self.waiting_time[passenger_id]["destination_floor"]
+            
+    #         # Check if the destination is actually in the direction of movement
+    #         # For going up, destination must be strictly above current position
+    #         if curr_dir == 1 and dest_floor > curr_pos:
+    #             return True
+    #         # For going down, destination must be strictly below current position
+    #         elif curr_dir == 2 and dest_floor < curr_pos:
+    #             return True
+        
+    #     return False
+
+    # def _calculate_pickup_reward(self):
+    #     """Calculate reward for picking up passengers"""
+    #     pickup_reward = 0
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["wait_end"] == self.current_step:
+    #             waiting_duration = data["wait_end"] - data["wait_start"]
+    #             # Balanced pickup reward that doesn't encourage excessive pickups
+    #             pickup_reward += 2.0 * (0.9 ** waiting_duration)
+        
+    #     return pickup_reward
+
+    # def _calculate_delivery_reward(self):
+    #     """Calculate reward for delivering passengers - significantly increased"""
+    #     delivery_reward = 0
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["travel_end"] == self.current_step:
+    #             # Increased base delivery reward
+    #             delivery_reward += 15.0
+                
+    #             # Calculate total trip time and give bigger bonus for fast delivery
+    #             total_trip_time = data["travel_end"] - data["wait_start"]
+    #             wait_time = data["wait_end"] - data["wait_start"]
+    #             travel_time = data["travel_end"] - data["wait_end"]
+                
+    #             # Calculate expected travel time based on floor distance
+    #             start_floor = data["start_floor"]
+    #             dest_floor = data["destination_floor"]
+    #             floor_distance = abs(dest_floor - start_floor)
+    #             expected_travel_time = floor_distance + 1  # +1 for the pickup action itself
+                
+    #             # Better travel time efficiency reward that accounts for distance
+    #             time_efficiency = max(0, expected_travel_time - travel_time)
+    #             time_bonus = 10.0 * (0.9 ** max(0, travel_time - expected_travel_time)) + 5.0 * (0.9 ** wait_time)
+    #             delivery_reward += time_bonus
+        
+    #     return delivery_reward
+
+    # def _calculate_time_penalty(self):
+    #     """Calculate penalties for both waiting and travel time"""
+    #     time_penalty = 0
+        
+    #     # Penalty for passengers waiting for pickup
+    #     for passenger_id, data in self.waiting_time.items():
+    #         if data["wait_end"] is None:
+    #             wait_duration = self.current_step - data["wait_start"]
+    #             # Progressive penalty that grows more quickly after threshold
+    #             if wait_duration <= 5:
+    #                 time_penalty -= 0.1 * wait_duration
+    #             else:
+    #                 time_penalty -= 0.1 * 5 + 0.3 * (wait_duration - 5) + 0.1 * (1.1 ** min(wait_duration - 5, 20))
+        
+    #     # Penalty for passengers in transit (already picked up but not delivered)
+    #     for elev_id in range(self.num_elevators):
+    #         for passenger_id in self.passengers_in_elevators[elev_id]:
+    #             # Safely check if passenger exists in waiting_time
+    #             if passenger_id not in self.waiting_time:
+    #                 continue
+                    
+    #             data = self.waiting_time[passenger_id]
+    #             if data["wait_end"] is None:
+    #                 continue  # Skip if wait_end isn't set (shouldn't happen but for safety)
+                    
+    #             travel_duration = self.current_step - data["wait_end"]
+                
+    #             # Calculate expected travel duration based on floor distance
+    #             start_floor = data["start_floor"]
+    #             dest_floor = data["destination_floor"]
+    #             floor_distance = abs(dest_floor - start_floor)
+    #             expected_travel_time = floor_distance + 1  # +1 for the pickup action
+                
+    #             # Only apply heavy penalties for travel times that exceed expectations
+    #             excess_travel_time = max(0, travel_duration - expected_travel_time)
+                
+    #             # Significant penalty that grows continuously with excess travel time
+    #             if excess_travel_time > 0:
+    #                 time_penalty -= 0.2 * excess_travel_time + 0.1 * (1.1 ** min(excess_travel_time, 30))
+        
+    #     return time_penalty
+
+
     def calculate_reward(self):
-        """Calculate reward balancing waiting time, pickups, deliveries and movement efficiency"""
-        # Base reward
-        reward = -0.1
-        
-        # Movement penalty
-        movement_penalty = self._calculate_movement_penalty()
-        
-        # Pickup and delivery rewards
+        """Improved reward calculation to prioritize efficient passenger delivery"""
+        # Get individual reward components
+        movement_reward = self._calculate_movement_reward()
         pickup_reward = self._calculate_pickup_reward()
         delivery_reward = self._calculate_delivery_reward()
+        time_penalty = self._calculate_time_penalty()
+        button_reward = self._calculate_button_response_reward()
         
-        # Strategic positioning reward
-        positioning_reward = self._calculate_positioning_reward()
-        
-        # Waiting time penalty
-        waiting_penalty = self._calculate_waiting_penalty()
-        
-        # Combine all components
-        total_reward = (reward + 
-                        movement_penalty + 
-                        pickup_reward + 
-                        delivery_reward + 
-                        positioning_reward + 
-                        waiting_penalty)
-        
+        # Weight the components to ensure balanced optimization
+        total_reward = (
+            0.3 * movement_reward +  # Efficient movement
+            0.2 * pickup_reward +    # Passenger pickup
+            0.3 * delivery_reward +  # Passenger delivery
+            0.1 * button_reward +    # Responding to buttons
+            time_penalty             # Time penalties remain unscaled as they're critical
+        )
+
         return total_reward
-    
-    def _calculate_movement_penalty(self):
-        """Calculate penalty for elevator movement"""
-        movement_penalty = 0
-        for elev_id in range(self.num_elevators):
-            if self.elevator_directions[elev_id] != 0:
-                # Check if elevator has passengers or is moving toward waiting passengers
-                has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
-                moving_to_pickup = self._is_moving_to_pickup(elev_id)
-                
-                # Apply penalty with different weights based on purpose
-                if has_passengers or moving_to_pickup:
-                    movement_penalty -= 0.2  # Reduced penalty for purposeful movement
-                else:
-                    movement_penalty -= 0.4  # Higher penalty for "speculative" movement
+
+    def _calculate_button_response_reward(self):
+        """Calculate reward for responding to floor buttons that have been lit for a while"""
+        button_reward = 0
         
-        return movement_penalty
-    
-    def _is_moving_to_pickup(self, elevator_id):
-        """Check if elevator is moving toward waiting passengers"""
+        # Check each floor with a lit button
+        for floor in range(self.num_floors):
+            if self.floor_buttons[floor]:
+                # Find the longest waiting passenger at this floor
+                longest_wait = 0
+                for passenger_id, data in self.waiting_time.items():
+                    if data["start_floor"] == floor and data["wait_end"] is None:
+                        wait_duration = self.current_step - data["wait_start"]
+                        longest_wait = max(longest_wait, wait_duration)
+                
+                # Reward elevators that are moving toward floors with long-waiting passengers
+                if longest_wait > 5:  # Only prioritize after a reasonable wait threshold
+                    for elev_id in range(self.num_elevators):
+                        elev_pos = self.elevator_positions[elev_id]
+                        elev_dir = self.elevator_directions[elev_id]
+                        
+                        # If elevator is moving toward this floor with waiting passengers
+                        if (elev_dir == 1 and floor > elev_pos) or (elev_dir == 2 and floor < elev_pos):
+                            # Increasing reward for longer waits
+                            button_reward += 0.1 * min(5.0, 1.0 + 0.1 * longest_wait)
+        
+        return button_reward
+
+    def _calculate_movement_reward(self):
+        """Calculate rewards/penalties for elevator movement decisions"""
+        movement_reward = 0
+        
+        for elev_id in range(self.num_elevators):
+            elev_pos = self.elevator_positions[elev_id]
+            elev_dir = self.elevator_directions[elev_id]
+            
+            # Check if elevator has passengers
+            has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
+            
+            # Idle penalty only when carrying passengers or when there are passengers to pickup
+            if elev_dir == 0 and has_passengers:
+                movement_reward -= 1.0  # Significant penalty for standing still with passengers
+            
+            # Check if elevator is moving toward passenger destinations or pickups
+            if has_passengers:
+                # Check if moving toward destinations of passengers in the elevator
+                moving_to_destination = self._is_moving_to_destination(elev_id)
+                if moving_to_destination and elev_dir != 0:
+                    movement_reward += 0.5  # Reward for heading to destinations
+                
+                # Check if moving away from all relevant destinations
+                elif elev_dir == 1:  # Moving up
+                    has_dest_above = False
+                    # Safely check if any destination is above current position
+                    for p_id in self.passengers_in_elevators[elev_id]:
+                        if p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] > elev_pos:
+                            has_dest_above = True
+                            break
+                    
+                    if not has_dest_above:
+                        # Also check if there are waiting passengers above
+                        waiting_above = any(self.waiting_passengers[floor] > 0 for floor in range(elev_pos + 1, self.num_floors))
+                        if not waiting_above:
+                            movement_reward -= 0.8  # Penalty for moving away from all destinations and pickups
+                
+                elif elev_dir == 2:  # Moving down
+                    has_dest_below = False
+                    # Safely check if any destination is below current position
+                    for p_id in self.passengers_in_elevators[elev_id]:
+                        if p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] < elev_pos:
+                            has_dest_below = True
+                            break
+                    
+                    if not has_dest_below:
+                        # Also check if there are waiting passengers below
+                        waiting_below = any(self.waiting_passengers[floor] > 0 for floor in range(0, elev_pos))
+                        if not waiting_below:
+                            movement_reward -= 0.8  # Penalty for moving away from all destinations and pickups
+            
+            # If no passengers in elevator, check if moving toward waiting passengers with coordination
+            elif not has_passengers and elev_dir != 0:
+                # Check for waiting passengers in movement direction
+                if elev_dir == 1:  # Moving up
+                    waiting_floors_above = [floor for floor in range(elev_pos + 1, self.num_floors) 
+                                           if self.waiting_passengers[floor] > 0]
+                    
+                    if waiting_floors_above:
+                        # Check if this elevator is closest to the waiting passengers
+                        closest_floor = min(waiting_floors_above)
+                        other_elevators_heading_up = [i for i in range(self.num_elevators) 
+                                                     if i != elev_id and 
+                                                     self.elevator_directions[i] == 1 and
+                                                     self.elevator_positions[i] < closest_floor]
+                        
+                        # If we're the closest elevator or no other elevators are heading up
+                        if not other_elevators_heading_up or all(self.elevator_positions[i] <= elev_pos 
+                                                               for i in other_elevators_heading_up):
+                            movement_reward += 0.3  # Reward for moving toward waiting passengers
+                        else:
+                            movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
+                    else:
+                        movement_reward -= 0.2  # Penalty for moving up with no waiting passengers above
+                
+                elif elev_dir == 2:  # Moving down
+                    waiting_floors_below = [floor for floor in range(0, elev_pos) 
+                                           if self.waiting_passengers[floor] > 0]
+                    
+                    if waiting_floors_below:
+                        # Check if this elevator is closest to the waiting passengers
+                        closest_floor = max(waiting_floors_below)
+                        other_elevators_heading_down = [i for i in range(self.num_elevators) 
+                                                      if i != elev_id and 
+                                                      self.elevator_directions[i] == 2 and
+                                                      self.elevator_positions[i] > closest_floor]
+                        
+                        # If we're the closest elevator or no other elevators are heading down
+                        if not other_elevators_heading_down or all(self.elevator_positions[i] >= elev_pos 
+                                                                 for i in other_elevators_heading_down):
+                            movement_reward += 0.3  # Reward for moving toward waiting passengers
+                        else:
+                            movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
+                    else:
+                        movement_reward -= 0.2  # Penalty for moving down with no waiting passengers below
+                        
+        return movement_reward
+
+    def _is_moving_to_destination(self, elevator_id):
+        """Check if elevator is moving toward passenger destinations"""
         curr_pos = self.elevator_positions[elevator_id]
         curr_dir = self.elevator_directions[elevator_id]
         
-        if curr_dir == 1:  # Moving up
-            for floor in range(curr_pos + 1, self.num_floors):
-                if self.waiting_passengers[floor] > 0:
-                    return True
-        elif curr_dir == 2:  # Moving down
-            for floor in range(curr_pos - 1, -1, -1):
-                if self.waiting_passengers[floor] > 0:
-                    return True
+        # If the elevator isn't moving, it can't be moving to a destination
+        if curr_dir == 0:
+            return False
+            
+        # Check if any passengers in this elevator need to go in the current direction
+        for passenger_id in self.passengers_in_elevators[elevator_id]:
+            # Safely check if the passenger exists in the waiting_time dictionary
+            if passenger_id not in self.waiting_time:
+                continue
+                
+            dest_floor = self.waiting_time[passenger_id]["destination_floor"]
+            
+            # Check if the destination is actually in the direction of movement
+            # For going up, destination must be strictly above current position
+            if curr_dir == 1 and dest_floor > curr_pos:
+                return True
+            # For going down, destination must be strictly below current position
+            elif curr_dir == 2 and dest_floor < curr_pos:
+                return True
         
         return False
-    
+
     def _calculate_pickup_reward(self):
-        """Calculate reward for picking up passengers"""
+        """Calculate reward for picking up passengers - prioritizing long-waiting passengers"""
         pickup_reward = 0
         for passenger_id, data in self.waiting_time.items():
             if data["wait_end"] == self.current_step:
                 waiting_duration = data["wait_end"] - data["wait_start"]
-                # Exponentially decreasing reward based on wait time
-                pickup_reward += 7.0 * (0.9 ** waiting_duration)
+                # Increased reward for picking up long-waiting passengers
+                pickup_reward += 2.0 * min(5.0, 1.0 + 0.2 * waiting_duration)  # Capped linear growth
         
         return pickup_reward
-    
+
     def _calculate_delivery_reward(self):
-        """Calculate reward for delivering passengers"""
+        """Calculate reward for delivering passengers - significantly increased"""
         delivery_reward = 0
         for passenger_id, data in self.waiting_time.items():
             if data["travel_end"] == self.current_step:
-                delivery_reward += 10.0
+                # Increased base delivery reward
+                delivery_reward += 15.0
+                
+                # Calculate total trip time and give bigger bonus for fast delivery
                 total_trip_time = data["travel_end"] - data["wait_start"]
-                # More generous time bonus
-                time_bonus = 15.0 * (0.95 ** total_trip_time)
+                wait_time = data["wait_end"] - data["wait_start"]
+                travel_time = data["travel_end"] - data["wait_end"]
+                
+                # Calculate expected travel time based on floor distance
+                start_floor = data["start_floor"]
+                dest_floor = data["destination_floor"]
+                floor_distance = abs(dest_floor - start_floor)
+                expected_travel_time = floor_distance + 1  # +1 for the pickup action itself
+                
+                # Better travel time efficiency reward that accounts for distance
+                time_efficiency = max(0, expected_travel_time - travel_time)
+                time_bonus = 10.0 * (0.9 ** max(0, travel_time - expected_travel_time)) + 5.0 * (0.9 ** wait_time) + 0.5 * time_efficiency
                 delivery_reward += time_bonus
         
         return delivery_reward
-    
-    def _calculate_positioning_reward(self):
-        """Calculate reward for strategic positioning of elevators"""
-        positioning_reward = 0
-        positions = self.elevator_positions.copy()
-        positions.sort()
+
+    def _calculate_time_penalty(self):
+        """Calculate penalties for both waiting and travel time"""
+        time_penalty = 0
         
-        # Reward for maintaining good spacing between elevators
-        for i in range(1, len(positions)):
-            gap = positions[i] - positions[i-1]
-            ideal_gap = self.num_floors / self.num_elevators
-            # Reward for approaching ideal gap
-            if abs(gap - ideal_gap) <= 2:
-                positioning_reward += 0.2
-        
-        return positioning_reward
-    
-    def _calculate_waiting_penalty(self):
-        """Calculate penalty for passenger waiting time"""
-        waiting_penalty = 0
+        # Penalty for passengers waiting for pickup
         for passenger_id, data in self.waiting_time.items():
             if data["wait_end"] is None:
                 wait_duration = self.current_step - data["wait_start"]
                 # Progressive penalty that grows more quickly after threshold
-                if wait_duration <= 8:
-                    waiting_penalty -= 0.1 * wait_duration
+                if wait_duration <= 5:
+                    time_penalty -= 0.1 * wait_duration
                 else:
-                    waiting_penalty -= 0.1 * 8 + 0.4 * (wait_duration - 8)
+                    time_penalty -= 0.1 * 5 + 0.3 * (wait_duration - 5) + 0.1 * (1.1 ** min(wait_duration - 5, 20))
         
-        return waiting_penalty
+        # Penalty for passengers in transit (already picked up but not delivered)
+        for elev_id in range(self.num_elevators):
+            for passenger_id in self.passengers_in_elevators[elev_id]:
+                # Safely check if passenger exists in waiting_time
+                if passenger_id not in self.waiting_time:
+                    continue
+                    
+                data = self.waiting_time[passenger_id]
+                if data["wait_end"] is None:
+                    continue  # Skip if wait_end isn't set (shouldn't happen but for safety)
+                    
+                travel_duration = self.current_step - data["wait_end"]
+                
+                # Calculate expected travel duration based on floor distance
+                start_floor = data["start_floor"]
+                dest_floor = data["destination_floor"]
+                floor_distance = abs(dest_floor - start_floor)
+                expected_travel_time = floor_distance + 1  # +1 for the pickup action
+                
+                # Only apply heavy penalties for travel times that exceed expectations
+                excess_travel_time = max(0, travel_duration - expected_travel_time)
+                
+                # Significant penalty that grows continuously with excess travel time
+                if excess_travel_time > 0:
+                    time_penalty -= 0.2 * excess_travel_time + 0.1 * (1.1 ** min(excess_travel_time, 30))
+        
+        return time_penalty
 
     def step(self, action):
         # Increment step counter
