@@ -36,6 +36,8 @@ class MultiElevatorEnv(gym.Env):
         self.clock = None
         self.colors = None
         self.font = None
+
+        self.current_reward = 0.0  # Initialize current reward
         
         # Reset environment to initialize all state variables
         self.reset()
@@ -76,6 +78,7 @@ class MultiElevatorEnv(gym.Env):
         self.total_waiting_time = 0
         self.total_passengers_served = 0
         self.waiting_time = {}
+        self.current_reward = 0.0  # Reset reward at the start of an episode
         
         # Generate initial passengers
         for _ in range(5):
@@ -539,46 +542,46 @@ class MultiElevatorEnv(gym.Env):
                 # Check for waiting passengers in movement direction
                 if elev_dir == 1:  # Moving up
                     waiting_floors_above = [floor for floor in range(elev_pos + 1, self.num_floors) 
-                                           if self.waiting_passengers[floor] > 0]
+                                        if self.waiting_passengers[floor] > 0]
                     
                     if waiting_floors_above:
                         # Check if this elevator is closest to the waiting passengers
                         closest_floor = min(waiting_floors_above)
                         other_elevators_heading_up = [i for i in range(self.num_elevators) 
-                                                     if i != elev_id and 
-                                                     self.elevator_directions[i] == 1 and
-                                                     self.elevator_positions[i] < closest_floor]
+                                                    if i != elev_id and 
+                                                    self.elevator_directions[i] == 1 and
+                                                    self.elevator_positions[i] < closest_floor]
                         
                         # If we're the closest elevator or no other elevators are heading up
                         if not other_elevators_heading_up or all(self.elevator_positions[i] <= elev_pos 
-                                                               for i in other_elevators_heading_up):
+                                                            for i in other_elevators_heading_up):
                             movement_reward += 0.3  # Reward for moving toward waiting passengers
                         else:
                             movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
                     else:
-                        movement_reward -= 0.2  # Penalty for moving up with no waiting passengers above
+                        movement_reward -= 0.5  # Increased penalty for moving up with no waiting passengers above
                 
                 elif elev_dir == 2:  # Moving down
                     waiting_floors_below = [floor for floor in range(0, elev_pos) 
-                                           if self.waiting_passengers[floor] > 0]
+                                        if self.waiting_passengers[floor] > 0]
                     
                     if waiting_floors_below:
                         # Check if this elevator is closest to the waiting passengers
                         closest_floor = max(waiting_floors_below)
                         other_elevators_heading_down = [i for i in range(self.num_elevators) 
-                                                      if i != elev_id and 
-                                                      self.elevator_directions[i] == 2 and
-                                                      self.elevator_positions[i] > closest_floor]
+                                                    if i != elev_id and 
+                                                    self.elevator_directions[i] == 2 and
+                                                    self.elevator_positions[i] > closest_floor]
                         
                         # If we're the closest elevator or no other elevators are heading down
                         if not other_elevators_heading_down or all(self.elevator_positions[i] >= elev_pos 
-                                                                 for i in other_elevators_heading_down):
+                                                                for i in other_elevators_heading_down):
                             movement_reward += 0.3  # Reward for moving toward waiting passengers
                         else:
                             movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
                     else:
-                        movement_reward -= 0.2  # Penalty for moving down with no waiting passengers below
-                        
+                        movement_reward -= 0.5  # Increased penalty for moving down with no waiting passengers below
+        
         return movement_reward
 
     def _is_moving_to_destination(self, elevator_id):
@@ -701,6 +704,7 @@ class MultiElevatorEnv(gym.Env):
 
         # Calculate reward
         reward = self.calculate_reward()
+        self.current_reward = reward  # Store the reward for rendering
 
         # Check if episode is done
         terminated = self.current_step >= self.max_steps
@@ -913,7 +917,8 @@ class MultiElevatorEnv(gym.Env):
         info_text = [
             f"Step: {self.current_step}/{self.max_steps}",
             f"Total served: {self.total_passengers_served}",
-            f"Avg wait time: {avg_wait_time:.2f} steps"
+            f"Avg wait time: {avg_wait_time:.2f} steps",
+            f"Reward: {self.current_reward:.2f}"  # Add reward display
         ]
         
         for i, text in enumerate(info_text):
