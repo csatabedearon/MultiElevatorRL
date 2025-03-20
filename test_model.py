@@ -35,7 +35,8 @@ for _ in range(5000):
         # The info dictionary contains the average waiting time calculated as:
         # total_waiting_time / max(1, total_passengers_served)
         avg_wait_time = info.get("average_waiting_time", 0)
-        print(f"Episode {episode} finished. Total reward: {episode_reward}, Total movements: {total_moves}, Average waiting time: {avg_wait_time:.2f} steps")
+        total_served= info.get("total_passengers_served",0)
+        print(f"Episode {episode} finished. Total reward: {episode_reward:.2f}, Total movements: {total_moves}, Average waiting time: {avg_wait_time:.2f} steps, Total passangers served: {total_served:.2f}")
         
         # Reset for the next episode
         obs, info = env.reset()
