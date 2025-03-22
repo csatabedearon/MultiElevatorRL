@@ -13,7 +13,7 @@ monkey.patch_all()
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
-from multi_elevator_env import MultiElevatorEnv
+from multi_elevator.environment.env import MultiElevatorEnv
 import json
 from stable_baselines3 import PPO
 import torch

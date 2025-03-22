@@ -1,4 +1,4 @@
-from multi_elevator_env import MultiElevatorEnv
+from multi_elevator.environment.env import MultiElevatorEnv
 from stable_baselines3 import PPO
 
 # Create the environment (with rendering for visualization)

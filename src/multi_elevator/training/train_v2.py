@@ -1,7 +1,7 @@
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
-from multi_elevator_env import MultiElevatorEnv
+from multi_elevator.environment.env import MultiElevatorEnv
 
 def make_env(seed_offset=0):
     def _init():

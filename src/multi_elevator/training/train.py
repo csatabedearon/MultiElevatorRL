@@ -1,6 +1,6 @@
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3 import PPO
-from multi_elevator_env import MultiElevatorEnv
+from multi_elevator.environment.env import MultiElevatorEnv
 
 # Create environment
 env = MultiElevatorEnv(render_mode=None)

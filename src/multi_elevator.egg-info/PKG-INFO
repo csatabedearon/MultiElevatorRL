@@ -1,0 +1,108 @@
+Metadata-Version: 2.2
+Name: multi_elevator
+Version: 1.0.0
+Summary: A multi-elevator system with reinforcement learning
+Home-page: https://github.com/yourusername/multi_elevator
+Author: Your Name
+Author-email: your.email@example.com
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: gymnasium
+Requires-Dist: numpy
+Requires-Dist: torch
+Requires-Dist: stable-baselines3
+Requires-Dist: flask
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Multi-Elevator System with Reinforcement Learning
+
+A sophisticated multi-elevator system that uses reinforcement learning to optimize elevator scheduling and passenger transportation.
+
+## Project Structure
+
+```
+multi_elevator/
+â”œâ”€â”€ src/
+â”‚   â””â”€â”€ multi_elevator/
+â”‚       â”œâ”€â”€ environment/     # Environment implementation
+â”‚       â”œâ”€â”€ models/         # Model definitions and architectures
+â”‚       â”œâ”€â”€ training/       # Training scripts and utilities
+â”‚       â””â”€â”€ utils/          # Utility functions and web interface
+â”œâ”€â”€ tests/                 # Test files
+â”œâ”€â”€ configs/              # Configuration files
+â”œâ”€â”€ models/
+â”‚   â”œâ”€â”€ best_models/      # Best performing model checkpoints
+â”‚   â””â”€â”€ checkpoints/      # Training checkpoints
+â”œâ”€â”€ docs/                 # Documentation
+â”œâ”€â”€ logs/                 # Training logs and tensorboard data
+â”œâ”€â”€ requirements.txt      # Project dependencies
+â””â”€â”€ setup.py             # Package installation configuration
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/multi_elevator.git
+cd multi_elevator
+```
+
+2. Create a virtual environment (recommended):
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install the package:
+```bash
+pip install -e .
+```
+
+## Usage
+
+### Training
+
+To train a new model:
+```bash
+python -m multi_elevator.training.train
+```
+
+### Testing
+
+To test a trained model:
+```bash
+python -m multi_elevator.training.test
+```
+
+### Web Interface
+
+To run the web interface:
+```bash
+python -m multi_elevator.utils.web_app
+```
+
+## Development
+
+- The project uses Python 3.8 or higher
+- Dependencies are managed through `requirements.txt`
+- Code follows PEP 8 style guidelines
+- Tests should be written for new features
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

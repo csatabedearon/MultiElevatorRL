@@ -1,0 +1,37 @@
+# Environment Configuration
+env:
+  num_floors: 10
+  num_elevators: 4
+  max_passengers_per_elevator: 8
+  passenger_spawn_rate: 0.1
+  simulation_speed: 1.0
+
+# Training Configuration
+training:
+  total_timesteps: 1000000
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  target_kl: 0.015
+  tensorboard_log: "logs/tensorboard"
+
+# Model Configuration
+model:
+  policy_type: "MlpPolicy"
+  features_dim: 128
+  net_arch:
+    - dict(pi=[64, 64], vf=[64, 64])
+
+# Web Interface Configuration
+web:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false 
