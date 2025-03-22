@@ -3,130 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elevator Visualization</title>
+    <title>Multi-Elevator Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #ffd60a;
+            --light: #f8f9fa;
+            --dark: #2b2d42;
+            --gray: #8d99ae;
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
         .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1.5rem 0;
+            text-align: center;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: var(--transition);
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .building {
             display: flex;
-            padding: 20px;
-            gap: 20px;
+            height: 70vh;
+            min-height: 500px;
+            position: relative;
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .floors {
+            display: flex;
+            flex-direction: column-reverse;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .floor {
+            flex: 1;
+            display: flex;
+            border-bottom: 2px solid #eee;
+            position: relative;
+            transition: var(--transition);
+        }
+        
+        .floor:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .floor-info {
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            background-color: var(--light);
+            border-right: 1px dashed var(--gray);
+        }
+        
+        .floor-number {
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        
+        .elevator {
+            position: absolute;
+            width: 70px;
+            margin: 0 5px;
+            background: linear-gradient(to bottom, var(--secondary), var(--primary));
+            border-radius: 8px;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .elevator-shaft {
+            width: 80px;
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.03);
+            margin: 0 10px;
+            border-radius: 4px;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+            transform: translateY(-1px);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            padding: 1.25rem;
+            background-color: white;
+            border-radius: 12px;
+            text-align: center;
+            transition: var(--transition);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-title {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .floor-button {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+        }
+        
+        .floor-button:hover {
+            background-color: var(--primary-light);
+            color: white;
+        }
+        
+        .floor-button.active {
+            background-color: var(--danger);
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(247, 37, 133, 0.4);
+            }
+            70% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(247, 37, 133, 0);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(247, 37, 133, 0);
+            }
+        }
+        
+        .control-panel {
+            background-color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .control-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        .control-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
             flex-wrap: wrap;
         }
-        .visualization {
-            border: 1px solid #ccc;
-            padding: 10px;
-            flex: 1;
-            min-width: 400px;
-        }
-        .stats {
-            border: 1px solid #ccc;
-            padding: 10px;
-            flex: 1;
-            min-width: 300px;
-        }
-        .graphs {
-            border: 1px solid #ccc;
-            padding: 10px;
-            flex: 2;
-            min-width: 800px;
-        }
-        .graph-container {
-            margin: 10px 0;
-            height: 200px;
-        }
-        #building {
-            border: 1px solid #333;
-        }
-        .controls {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-        }
-        .status-message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        button {
-            padding: 8px 16px;
-            margin: 5px;
-            cursor: pointer;
-        }
-        .button-container {
-            margin-top: 10px;
-        }
-        .slider-container {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-        }
-        .slider-container label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .slider-value {
-            display: inline-block;
-            margin-left: 10px;
-            font-weight: bold;
+        
+        /* Responsive adjustments */
+        @media (max-width: 576px) {
+            .container {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                border-radius: 0;
+                margin: -0.5rem -0.5rem 1.5rem;
+            }
+            
+            .building {
+                height: 60vh;
+            }
+            
+            .floor-info {
+                width: 90px;
+                padding: 0.25rem 0.5rem;
+            }
+            
+            .stat-card {
+                padding: 1rem;
+            }
+            
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="visualization">
-            <h2>Elevator System Visualization</h2>
-            <canvas id="building" width="400" height="600"></canvas>
-            <div class="controls">
-                <h3>Simulation Controls</h3>
-                <div>
-                    <input type="file" id="modelFile" accept=".zip" />
-                    <div class="button-container">
-                        <button onclick="loadModel()">Load Model</button>
-                        <button onclick="startSimulation()">Start Simulation</button>
-                        <button onclick="stopSimulation()">Stop Simulation</button>
+        <div class="header">
+            <h1>Multi-Elevator Simulator</h1>
+        </div>
+        <div class="dashboard">
+            <div class="card building">
+                <h2>Elevator System Visualization</h2>
+                <canvas id="building" width="400" height="600"></canvas>
+                <div class="controls">
+                    <h3>Simulation Controls</h3>
+                    <div>
+                        <input type="file" id="modelFile" accept=".zip" />
+                        <div class="button-container">
+                            <button onclick="loadModel()">Load Model</button>
+                            <button onclick="startSimulation()">Start Simulation</button>
+                            <button onclick="stopSimulation()">Stop Simulation</button>
+                        </div>
                     </div>
+                    <div class="slider-container">
+                        <label for="passengerRate">Passenger Arrival Rate:</label>
+                        <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
+                        <span class="slider-value" id="rateValue">0.1</span>
+                    </div>
+                    <div class="slider-container">
+                        <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
+                        <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
+                        <span class="slider-value" id="speedValue">1.0</span>
+                    </div>
+                    <div class="slider-container">
+                        <label for="maxSteps">Maximum Steps:</label>
+                        <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
+                        <span class="slider-value" id="maxStepsValue">1000</span>
+                    </div>
+                    <div id="statusMessage"></div>
                 </div>
-                <div class="slider-container">
-                    <label for="passengerRate">Passenger Arrival Rate:</label>
-                    <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
-                    <span class="slider-value" id="rateValue">0.1</span>
-                </div>
-                <div class="slider-container">
-                    <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
-                    <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
-                    <span class="slider-value" id="speedValue">1.0</span>
-                </div>
-                <div class="slider-container">
-                    <label for="maxSteps">Maximum Steps:</label>
-                    <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
-                    <span class="slider-value" id="maxStepsValue">1000</span>
-                </div>
-                <div id="statusMessage"></div>
             </div>
-        </div>
-        <div class="stats">
-            <h2>System Stats</h2>
-            <div id="stats"></div>
-        </div>
-        <div class="graphs">
-            <h2>Performance Metrics</h2>
-            <div class="graph-container">
-                <canvas id="passengersChart"></canvas>
+            <div class="card stats">
+                <h2>System Stats</h2>
+                <div id="stats"></div>
             </div>
-            <div class="graph-container">
-                <canvas id="rewardChart"></canvas>
-            </div>
-            <div class="graph-container">
-                <canvas id="waitTimeChart"></canvas>
+            <div class="card graphs">
+                <h2>Performance Metrics</h2>
+                <div class="graph-container">
+                    <canvas id="passengersChart"></canvas>
+                </div>
+                <div class="graph-container">
+                    <canvas id="rewardChart"></canvas>
+                </div>
+                <div class="graph-container">
+                    <canvas id="waitTimeChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -378,7 +600,7 @@
                 // Draw passenger count with icon
                 if (passengerCount > 0) {
                     // Draw a background for better visibility
-                    const text = `${passengerCount} 👤`;
+                    const text = `${passengerCount} 🧍‍♂️`;
                     ctx.font = '14px Arial';
                     const textMetrics = ctx.measureText(text);
                     const textWidth = textMetrics.width;
@@ -409,7 +631,7 @@
                     ctx.font = '12px Arial';
                     ctx.fillStyle = '#E91E63';
                     ctx.textAlign = 'left';
-                    ctx.fillText(`${count} 👤`, canvas.width - buildingPadding + 5, y + 5);
+                    ctx.fillText(`${count} 🧍‍♂️`, canvas.width - buildingPadding + 5, y + 5);
                 }
             });
         }
@@ -434,7 +656,7 @@
                         <strong>Elevator ${i + 1}:</strong><br>
                         Floor: ${pos}<br>
                         Direction: ${['Idle', 'Up', 'Down'][data.elevator_directions[i]]}<br>
-                        Passengers: ${data.elevator_passengers[i]} 👤
+                        Passengers: ${data.elevator_passengers[i]} 🧍‍♂️
                     </div>
                 `).join('')}
             `;

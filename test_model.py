@@ -5,7 +5,7 @@ from stable_baselines3 import PPO
 env = MultiElevatorEnv(render_mode="human")
 
 # Load the trained model
-model = PPO.load("best_model_v11/best_model.zip", env=env)
+model = PPO.load("best_model_v10/best_model.zip", env=env)
 
 # Reset the environment with an optional seed for reproducibility
 obs, info = env.reset(seed=44)
