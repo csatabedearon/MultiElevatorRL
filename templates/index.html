@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elevator Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .container {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .visualization {
+            border: 1px solid #ccc;
+            padding: 10px;
+            flex: 1;
+            min-width: 400px;
+        }
+        .stats {
+            border: 1px solid #ccc;
+            padding: 10px;
+            flex: 1;
+            min-width: 300px;
+        }
+        .graphs {
+            border: 1px solid #ccc;
+            padding: 10px;
+            flex: 2;
+            min-width: 800px;
+        }
+        .graph-container {
+            margin: 10px 0;
+            height: 200px;
+        }
+        #building {
+            border: 1px solid #333;
+        }
+        .controls {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .button-container {
+            margin-top: 10px;
+        }
+        .slider-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .slider-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .slider-value {
+            display: inline-block;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="visualization">
+            <h2>Elevator System Visualization</h2>
+            <canvas id="building" width="400" height="600"></canvas>
+            <div class="controls">
+                <h3>Simulation Controls</h3>
+                <div>
+                    <input type="file" id="modelFile" accept=".zip" />
+                    <div class="button-container">
+                        <button onclick="loadModel()">Load Model</button>
+                        <button onclick="startSimulation()">Start Simulation</button>
+                        <button onclick="stopSimulation()">Stop Simulation</button>
+                    </div>
+                </div>
+                <div class="slider-container">
+                    <label for="passengerRate">Passenger Arrival Rate:</label>
+                    <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
+                    <span class="slider-value" id="rateValue">0.1</span>
+                </div>
+                <div class="slider-container">
+                    <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
+                    <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
+                    <span class="slider-value" id="speedValue">1.0</span>
+                </div>
+                <div class="slider-container">
+                    <label for="maxSteps">Maximum Steps:</label>
+                    <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
+                    <span class="slider-value" id="maxStepsValue">1000</span>
+                </div>
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+        <div class="stats">
+            <h2>System Stats</h2>
+            <div id="stats"></div>
+        </div>
+        <div class="graphs">
+            <h2>Performance Metrics</h2>
+            <div class="graph-container">
+                <canvas id="passengersChart"></canvas>
+            </div>
+            <div class="graph-container">
+                <canvas id="rewardChart"></canvas>
+            </div>
+            <div class="graph-container">
+                <canvas id="waitTimeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const canvas = document.getElementById('building');
+        const ctx = canvas.getContext('2d');
+        const numFloors = 10;
+        const floorHeight = canvas.height / numFloors;
+        const elevatorWidth = 40;
+        const buildingPadding = 50;
+
+        // Set up passenger rate slider
+        const rateSlider = document.getElementById('passengerRate');
+        const rateValue = document.getElementById('rateValue');
+        let lastUpdateTime = 0;
+
+        // Set up simulation speed slider
+        const speedSlider = document.getElementById('simulationSpeed');
+        const speedValue = document.getElementById('speedValue');
+        let lastSpeedUpdateTime = 0;
+
+        // Set up max steps slider
+        const maxStepsSlider = document.getElementById('maxSteps');
+        const maxStepsValue = document.getElementById('maxStepsValue');
+        let lastMaxStepsUpdateTime = 0;
+
+        rateSlider.addEventListener('input', function() {
+            rateValue.textContent = this.value;
+            
+            // Throttle updates to prevent too many requests
+            const now = Date.now();
+            if (now - lastUpdateTime > 100) { // Update at most every 100ms
+                updatePassengerRate(this.value);
+                lastUpdateTime = now;
+            }
+        });
+
+        speedSlider.addEventListener('input', function() {
+            speedValue.textContent = this.value;
+            
+            // Throttle updates
+            const now = Date.now();
+            if (now - lastSpeedUpdateTime > 100) {
+                updateSimulationSpeed(this.value);
+                lastSpeedUpdateTime = now;
+            }
+        });
+
+        maxStepsSlider.addEventListener('input', function() {
+            maxStepsValue.textContent = this.value;
+            
+            // Throttle updates
+            const now = Date.now();
+            if (now - lastMaxStepsUpdateTime > 100) {
+                updateMaxSteps(this.value);
+                lastMaxStepsUpdateTime = now;
+            }
+        });
+
+        async function updatePassengerRate(rate) {
+            try {
+                const response = await fetch('/update_passenger_rate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ rate: rate })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus(`Passenger rate updated to ${result.new_rate}`);
+                } else {
+                    showStatus(result.message, true);
+                }
+            } catch (error) {
+                showStatus('Error updating passenger rate: ' + error, true);
+            }
+        }
+
+        async function updateSimulationSpeed(speed) {
+            try {
+                const response = await fetch('/update_simulation_speed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ speed: speed })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus(`Simulation speed updated to ${result.new_speed} seconds per step`);
+                } else {
+                    showStatus(result.message, true);
+                }
+            } catch (error) {
+                showStatus('Error updating simulation speed: ' + error, true);
+            }
+        }
+
+        async function updateMaxSteps(steps) {
+            try {
+                const response = await fetch('/update_max_steps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ max_steps: steps })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus(`Maximum steps updated to ${result.new_max_steps}`);
+                } else {
+                    showStatus(result.message, true);
+                }
+            } catch (error) {
+                showStatus('Error updating maximum steps: ' + error, true);
+            }
+        }
+
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = 'status-message ' + (isError ? 'error' : 'success');
+            statusDiv.textContent = message;
+        }
+
+        async function loadModel() {
+            const fileInput = document.getElementById('modelFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Please select a model file first', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('model_file', file);
+
+            try {
+                const response = await fetch('/load_model', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('Model loaded successfully');
+                } else {
+                    showStatus(result.message, true);
+                }
+            } catch (error) {
+                showStatus('Error loading model: ' + error, true);
+            }
+        }
+
+        async function startSimulation() {
+            try {
+                const response = await fetch('/start_simulation', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('Simulation started');
+                } else {
+                    showStatus('Error starting simulation', true);
+                }
+            } catch (error) {
+                showStatus('Error starting simulation: ' + error, true);
+            }
+        }
+
+        async function stopSimulation() {
+            try {
+                const response = await fetch('/stop_simulation', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showStatus('Simulation stopped');
+                } else {
+                    showStatus('Error stopping simulation', true);
+                }
+            } catch (error) {
+                showStatus('Error stopping simulation: ' + error, true);
+            }
+        }
+
+        function drawBuilding() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw floors
+            for (let i = 0; i < numFloors; i++) {
+                // Draw floor line
+                ctx.beginPath();
+                ctx.moveTo(buildingPadding, i * floorHeight);
+                ctx.lineTo(canvas.width - buildingPadding, i * floorHeight);
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+                
+                // Draw floor number
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Floor ${numFloors - i - 1}`, buildingPadding - 5, i * floorHeight + 20);
+            }
+        }
+
+        function drawElevators(positions, directions, passengers) {
+            const elevatorSpacing = (canvas.width - 2 * buildingPadding) / (positions.length + 1);
+            
+            positions.forEach((pos, index) => {
+                const x = buildingPadding + elevatorSpacing * (index + 1) - elevatorWidth/2;
+                const y = canvas.height - (pos + 1) * floorHeight;
+                
+                // Draw elevator shaft
+                ctx.strokeStyle = '#ccc';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x + elevatorWidth/2, 0);
+                ctx.lineTo(x + elevatorWidth/2, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw elevator background
+                // Change color based on passenger count
+                const passengerCount = passengers[index];
+                const occupancyRatio = Math.min(passengerCount / 5, 1); // Assume max capacity of 5 for color scaling
+                const red = Math.floor(76 + occupancyRatio * 179);  // 4CAF50 to E91E63
+                const green = Math.floor(175 - occupancyRatio * 95);
+                const blue = Math.floor(80 - occupancyRatio * 47);
+                ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+                ctx.fillRect(x, y, elevatorWidth, floorHeight - 2);
+                
+                // Draw elevator ID and direction
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                const directionSymbol = directions[index] === 1 ? '↑' : directions[index] === 2 ? '↓' : '•';
+                ctx.fillText(`E${index + 1} ${directionSymbol}`, x + elevatorWidth/2, y + 20);
+                
+                // Draw passenger count with icon
+                if (passengerCount > 0) {
+                    // Draw a background for better visibility
+                    const text = `${passengerCount} 👤`;
+                    ctx.font = '14px Arial';
+                    const textMetrics = ctx.measureText(text);
+                    const textWidth = textMetrics.width;
+                    const textHeight = 20;
+                    const padding = 5;
+                    
+                    // Draw semi-transparent background
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(
+                        x + (elevatorWidth - textWidth) / 2 - padding,
+                        y + floorHeight - 30,
+                        textWidth + 2 * padding,
+                        textHeight + 2 * padding
+                    );
+                    
+                    // Draw text
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(text, x + elevatorWidth/2, y + floorHeight - 15);
+                }
+            });
+        }
+
+        function drawWaitingPassengers(passengers) {
+            passengers.forEach((count, floor) => {
+                if (count > 0) {
+                    const y = canvas.height - (floor + 1) * floorHeight + floorHeight/2;
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = '#E91E63';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`${count} 👤`, canvas.width - buildingPadding + 5, y + 5);
+                }
+            });
+        }
+
+        function updateStats(data) {
+            const statsDiv = document.getElementById('stats');
+            const totalPassengersInElevators = data.elevator_passengers.reduce((a, b) => a + b, 0);
+            const totalWaitingPassengers = data.waiting_passengers.reduce((a, b) => a + b, 0);
+            
+            statsDiv.innerHTML = `
+                <p><strong>Current Step:</strong> ${data.current_step} / ${data.max_steps}</p>
+                <p><strong>Current Reward:</strong> ${data.reward.toFixed(2)}</p>
+                <p><strong>Total System Passengers:</strong> ${totalPassengersInElevators + totalWaitingPassengers}</p>
+                <p><strong>Waiting Passengers:</strong> ${totalWaitingPassengers}</p>
+                <p><strong>Passenger Rate:</strong> ${(data.passenger_rate * 100).toFixed(1)}%</p>
+                <p><strong>Simulation Speed:</strong> ${data.simulation_speed.toFixed(1)} sec/step</p>
+                <p><strong>Mode:</strong> ${data.using_model ? 'Using trained model' : 'Random actions'}</p>
+                <hr>
+                <h3>Elevator Status:</h3>
+                ${data.elevator_positions.map((pos, i) => `
+                    <div style="margin: 10px 0; padding: 10px; background-color: ${data.elevator_passengers[i] > 0 ? '#e8f5e9' : '#fff'}; border: 1px solid #ccc; border-radius: 4px;">
+                        <strong>Elevator ${i + 1}:</strong><br>
+                        Floor: ${pos}<br>
+                        Direction: ${['Idle', 'Up', 'Down'][data.elevator_directions[i]]}<br>
+                        Passengers: ${data.elevator_passengers[i]} 👤
+                    </div>
+                `).join('')}
+            `;
+
+            // Update sliders if they don't match current values
+            if (Math.abs(parseFloat(rateSlider.value) - data.passenger_rate) > 0.001) {
+                rateSlider.value = data.passenger_rate;
+                rateValue.textContent = data.passenger_rate;
+            }
+            if (Math.abs(parseFloat(speedSlider.value) - data.simulation_speed) > 0.001) {
+                speedSlider.value = data.simulation_speed;
+                speedValue.textContent = data.simulation_speed;
+            }
+            if (parseInt(maxStepsSlider.value) !== data.max_steps) {
+                maxStepsSlider.value = data.max_steps;
+                maxStepsValue.textContent = data.max_steps;
+            }
+        }
+
+        // Initialize data arrays for charts
+        const maxDataPoints = 100;
+        const chartData = {
+            passengers: [],
+            waiting: [],
+            rewards: [],
+            waitTimes: [],
+            timestamps: []
+        };
+
+        // Initialize charts
+        const passengersChart = new Chart(document.getElementById('passengersChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Total Passengers',
+                    data: [],
+                    borderColor: '#4CAF50',
+                    tension: 0.4
+                }, {
+                    label: 'Waiting Passengers',
+                    data: [],
+                    borderColor: '#E91E63',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        const rewardChart = new Chart(document.getElementById('rewardChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Reward',
+                    data: [],
+                    borderColor: '#2196F3',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        const waitTimeChart = new Chart(document.getElementById('waitTimeChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Average Wait Time (in simulation steps)',
+                    data: [],
+                    borderColor: '#FF9800',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Average Passenger Waiting Time (steps from appearance to pickup)'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Average wait: ${context.parsed.y.toFixed(1)} steps`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Steps'
+                        }
+                    }
+                }
+            }
+        });
+
+        function updateCharts(data) {
+            const timestamp = new Date().toLocaleTimeString();
+            const totalPassengers = data.elevator_passengers.reduce((a, b) => a + b, 0);
+            const totalWaiting = data.waiting_passengers.reduce((a, b) => a + b, 0);
+            
+            // Update data arrays
+            chartData.timestamps.push(timestamp);
+            chartData.passengers.push(totalPassengers);
+            chartData.waiting.push(totalWaiting);
+            chartData.rewards.push(data.reward);
+            chartData.waitTimes.push(data.avg_wait_time);
+            
+            // Limit data points
+            if (chartData.timestamps.length > maxDataPoints) {
+                chartData.timestamps.shift();
+                chartData.passengers.shift();
+                chartData.waiting.shift();
+                chartData.rewards.shift();
+                chartData.waitTimes.shift();
+            }
+            
+            // Update charts
+            passengersChart.data.labels = chartData.timestamps;
+            passengersChart.data.datasets[0].data = chartData.passengers;
+            passengersChart.data.datasets[1].data = chartData.waiting;
+            passengersChart.update('none');
+            
+            rewardChart.data.labels = chartData.timestamps;
+            rewardChart.data.datasets[0].data = chartData.rewards;
+            rewardChart.update('none');
+            
+            waitTimeChart.data.labels = chartData.timestamps;
+            waitTimeChart.data.datasets[0].data = chartData.waitTimes;
+            waitTimeChart.update('none');
+        }
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            showStatus('Connected to server');
+        });
+
+        socket.on('stats_update', (data) => {
+            drawBuilding();
+            drawElevators(data.elevator_positions, data.elevator_directions, data.elevator_passengers);
+            drawWaitingPassengers(data.waiting_passengers);
+            updateStats(data);
+            updateCharts(data);
+        });
+
+        // Initial building draw
+        drawBuilding();
+    </script>
+</body>
+</html> 

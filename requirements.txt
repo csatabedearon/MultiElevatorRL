@@ -1,0 +1,9 @@
+flask==2.3.3
+flask-socketio==5.3.6
+python-socketio==5.8.0
+python-engineio==4.5.1
+gevent==23.9.1
+gevent-websocket==0.10.1
+numpy==1.26.4
+gymnasium==0.29.1
+pygame==2.5.2 

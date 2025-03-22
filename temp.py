@@ -10,7 +10,7 @@ class MultiElevatorEnv(gym.Env):
     An extended elevator environment with multiple elevators and 10 floors.
     The goal is to minimize passenger waiting time.
     """
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1000}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 10}
 
     def __init__(self, render_mode=None, max_steps=500, passenger_rate=0.1, num_elevators=3):
         self.num_floors = 10
@@ -36,6 +36,8 @@ class MultiElevatorEnv(gym.Env):
         self.clock = None
         self.colors = None
         self.font = None
+
+        self.current_reward = 0.0  # Initialize current reward
         
         # Reset environment to initialize all state variables
         self.reset()
@@ -76,6 +78,7 @@ class MultiElevatorEnv(gym.Env):
         self.total_waiting_time = 0
         self.total_passengers_served = 0
         self.waiting_time = {}
+        self.current_reward = 0.0  # Reset reward at the start of an episode
         
         # Generate initial passengers
         for _ in range(5):
@@ -119,31 +122,53 @@ class MultiElevatorEnv(gym.Env):
         }
         
         return passenger_id
-    
 
     def calculate_reward(self):
         """Improved reward calculation to prioritize efficient passenger delivery"""
-        # Base reward
-        reward = 0  # Neutral base reward
-        
-        # Movement efficiency rewards/penalties
+        # Get individual reward components
         movement_reward = self._calculate_movement_reward()
-        
-        # Pickup and delivery rewards
         pickup_reward = self._calculate_pickup_reward()
         delivery_reward = self._calculate_delivery_reward()
-        
-        # Waiting and travel time penalties
         time_penalty = self._calculate_time_penalty()
+        button_reward = self._calculate_button_response_reward()
         
-        # Combine all components
-        total_reward = (reward + 
-                        movement_reward + 
-                        pickup_reward + 
-                        delivery_reward + 
-                        time_penalty)
+        # Weight the components to ensure balanced optimization
+        total_reward = (
+            0.3 * movement_reward +  # Efficient movement
+            0.2 * pickup_reward +    # Passenger pickup
+            0.3 * delivery_reward +  # Passenger delivery
+            0.1 * button_reward +    # Responding to buttons
+            time_penalty             # Time penalties remain unscaled as they're critical
+        )
 
         return total_reward
+
+    def _calculate_button_response_reward(self):
+        """Calculate reward for responding to floor buttons that have been lit for a while"""
+        button_reward = 0
+        
+        # Check each floor with a lit button
+        for floor in range(self.num_floors):
+            if self.floor_buttons[floor]:
+                # Find the longest waiting passenger at this floor
+                longest_wait = 0
+                for passenger_id, data in self.waiting_time.items():
+                    if data["start_floor"] == floor and data["wait_end"] is None:
+                        wait_duration = self.current_step - data["wait_start"]
+                        longest_wait = max(longest_wait, wait_duration)
+                
+                # Reward elevators that are moving toward floors with long-waiting passengers
+                if longest_wait > 5:  # Only prioritize after a reasonable wait threshold
+                    for elev_id in range(self.num_elevators):
+                        elev_pos = self.elevator_positions[elev_id]
+                        elev_dir = self.elevator_directions[elev_id]
+                        
+                        # If elevator is moving toward this floor with waiting passengers
+                        if (elev_dir == 1 and floor > elev_pos) or (elev_dir == 2 and floor < elev_pos):
+                            # Increasing reward for longer waits
+                            button_reward += 0.1 * min(5.0, 1.0 + 0.1 * longest_wait)
+        
+        return button_reward
 
     def _calculate_movement_reward(self):
         """Calculate rewards/penalties for elevator movement decisions"""
@@ -196,23 +221,51 @@ class MultiElevatorEnv(gym.Env):
                         if not waiting_below:
                             movement_reward -= 0.8  # Penalty for moving away from all destinations and pickups
             
-            # If no passengers in elevator, check if moving toward waiting passengers
+            # If no passengers in elevator, check if moving toward waiting passengers with coordination
             elif not has_passengers and elev_dir != 0:
                 # Check for waiting passengers in movement direction
                 if elev_dir == 1:  # Moving up
-                    waiting_above = any(self.waiting_passengers[floor] > 0 for floor in range(elev_pos + 1, self.num_floors))
-                    if waiting_above:
-                        movement_reward += 0.3  # Reward for moving toward waiting passengers
+                    waiting_floors_above = [floor for floor in range(elev_pos + 1, self.num_floors) 
+                                        if self.waiting_passengers[floor] > 0]
+                    
+                    if waiting_floors_above:
+                        # Check if this elevator is closest to the waiting passengers
+                        closest_floor = min(waiting_floors_above)
+                        other_elevators_heading_up = [i for i in range(self.num_elevators) 
+                                                    if i != elev_id and 
+                                                    self.elevator_directions[i] == 1 and
+                                                    self.elevator_positions[i] < closest_floor]
+                        
+                        # If we're the closest elevator or no other elevators are heading up
+                        if not other_elevators_heading_up or all(self.elevator_positions[i] <= elev_pos 
+                                                            for i in other_elevators_heading_up):
+                            movement_reward += 0.3  # Reward for moving toward waiting passengers
+                        else:
+                            movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
                     else:
-                        movement_reward -= 0.2  # Penalty for moving away from all waiting passengers
+                        movement_reward -= 0.5  # Increased penalty for moving up with no waiting passengers above
                 
                 elif elev_dir == 2:  # Moving down
-                    waiting_below = any(self.waiting_passengers[floor] > 0 for floor in range(0, elev_pos))
-                    if waiting_below:
-                        movement_reward += 0.3  # Reward for moving toward waiting passengers
-                    else:
-                        movement_reward -= 0.2  # Penalty for moving away from all waiting passengers
+                    waiting_floors_below = [floor for floor in range(0, elev_pos) 
+                                        if self.waiting_passengers[floor] > 0]
+                    
+                    if waiting_floors_below:
+                        # Check if this elevator is closest to the waiting passengers
+                        closest_floor = max(waiting_floors_below)
+                        other_elevators_heading_down = [i for i in range(self.num_elevators) 
+                                                    if i != elev_id and 
+                                                    self.elevator_directions[i] == 2 and
+                                                    self.elevator_positions[i] > closest_floor]
                         
+                        # If we're the closest elevator or no other elevators are heading down
+                        if not other_elevators_heading_down or all(self.elevator_positions[i] >= elev_pos 
+                                                                for i in other_elevators_heading_down):
+                            movement_reward += 0.3  # Reward for moving toward waiting passengers
+                        else:
+                            movement_reward += 0.1  # Smaller reward when other elevators are also heading that way
+                    else:
+                        movement_reward -= 0.5  # Increased penalty for moving down with no waiting passengers below
+        
         return movement_reward
 
     def _is_moving_to_destination(self, elevator_id):
@@ -243,13 +296,13 @@ class MultiElevatorEnv(gym.Env):
         return False
 
     def _calculate_pickup_reward(self):
-        """Calculate reward for picking up passengers"""
+        """Calculate reward for picking up passengers - prioritizing long-waiting passengers"""
         pickup_reward = 0
         for passenger_id, data in self.waiting_time.items():
             if data["wait_end"] == self.current_step:
                 waiting_duration = data["wait_end"] - data["wait_start"]
-                # Balanced pickup reward that doesn't encourage excessive pickups
-                pickup_reward += 2.0 * (0.9 ** waiting_duration)
+                # Increased reward for picking up long-waiting passengers
+                pickup_reward += 2.0 * min(5.0, 1.0 + 0.2 * waiting_duration)  # Capped linear growth
         
         return pickup_reward
 
@@ -274,7 +327,7 @@ class MultiElevatorEnv(gym.Env):
                 
                 # Better travel time efficiency reward that accounts for distance
                 time_efficiency = max(0, expected_travel_time - travel_time)
-                time_bonus = 10.0 * (0.9 ** max(0, travel_time - expected_travel_time)) + 5.0 * (0.9 ** wait_time)
+                time_bonus = 10.0 * (0.9 ** max(0, travel_time - expected_travel_time)) + 5.0 * (0.9 ** wait_time) + 0.5 * time_efficiency
                 delivery_reward += time_bonus
         
         return delivery_reward
@@ -335,6 +388,7 @@ class MultiElevatorEnv(gym.Env):
 
         # Calculate reward
         reward = self.calculate_reward()
+        self.current_reward = reward  # Store the reward for rendering
 
         # Check if episode is done
         terminated = self.current_step >= self.max_steps
@@ -547,7 +601,8 @@ class MultiElevatorEnv(gym.Env):
         info_text = [
             f"Step: {self.current_step}/{self.max_steps}",
             f"Total served: {self.total_passengers_served}",
-            f"Avg wait time: {avg_wait_time:.2f} steps"
+            f"Avg wait time: {avg_wait_time:.2f} steps",
+            f"Reward: {self.current_reward:.2f}"  # Add reward display
         ]
         
         for i, text in enumerate(info_text):
