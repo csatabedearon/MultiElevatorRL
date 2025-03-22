@@ -84,25 +84,29 @@
         
         .building {
             display: flex;
-            height: 70vh;
-            min-height: 500px;
+            height: auto;
             position: relative;
             border-left: 4px solid var(--secondary);
+            overflow: visible;
+            padding-right: 20px;
+            margin-bottom: 20px;
         }
         
         .floors {
             display: flex;
             flex-direction: column-reverse;
             width: 100%;
-            height: 100%;
+            height: auto;
         }
         
         .floor {
-            flex: 1;
+            flex: 0 0 80px;
             display: flex;
             border-bottom: 2px solid #eee;
             position: relative;
             transition: var(--transition);
+            align-items: center;
+            padding: 0 10px;
         }
         
         .floor:hover {
@@ -127,23 +131,43 @@
         .elevator {
             position: absolute;
             width: 70px;
-            margin: 0 5px;
+            height: 70px;
+            margin: 5px;
             background: linear-gradient(to bottom, var(--secondary), var(--primary));
             border-radius: 8px;
-            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            gap: 4px;
+            bottom: 0;
+        }
+        
+        .elevator .direction {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .elevator .passenger-count {
+            font-size: 0.9em;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
         }
         
         .elevator-shaft {
             width: 80px;
-            position: relative;
+            height: 100%;
+            position: absolute;
             background-color: rgba(0, 0, 0, 0.03);
             margin: 0 10px;
             border-radius: 4px;
+            right: 0;
+            top: 0;
+            bottom: 0;
         }
         
         .btn {
@@ -295,49 +319,218 @@
                 font-size: 0.85rem;
             }
         }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal h2 {
+            margin-bottom: 1.5rem;
+            color: var(--secondary);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .config-button {
+            background-color: var(--secondary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .config-button:hover {
+            background-color: var(--primary);
+        }
+        
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .status-message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+        
+        .status-message.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+        
+        .graph-container {
+            height: 200px;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 0.75rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .slider-container {
+            margin: 1rem 0;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .slider-container input[type="range"] {
+            width: 100%;
+            margin-bottom: 0.25rem;
+        }
+        
+        .slider-value {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+        
+        #modelFile {
+            margin: 1rem 0;
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
+    <!-- Welcome Modal -->
+    <div id="welcomeModal" class="modal-overlay">
+        <div class="modal">
+            <h2>Welcome to Multi-Elevator Simulator</h2>
+            <div class="form-group">
+                <label for="numElevators">Number of Elevators (1-10):</label>
+                <input type="number" id="numElevators" min="1" max="10" value="3">
+            </div>
+            <div class="form-group">
+                <label for="numFloors">Number of Floors (2-20):</label>
+                <input type="number" id="numFloors" min="2" max="20" value="10">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startSimulation()">Start Simulation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
     <div class="container">
         <div class="header">
             <h1>Multi-Elevator Simulator</h1>
+            <button class="config-button" onclick="showConfigModal()">Change Configuration</button>
         </div>
+        
         <div class="dashboard">
-            <div class="card building">
+            <div class="card">
                 <h2>Elevator System Visualization</h2>
-                <canvas id="building" width="400" height="600"></canvas>
+                <div class="building">
+                    <div class="floors">
+                        <!-- Floors will be dynamically added here -->
+                    </div>
+                </div>
+                
                 <div class="controls">
                     <h3>Simulation Controls</h3>
-                    <div>
+                    <div class="control-panel">
                         <input type="file" id="modelFile" accept=".zip" />
                         <div class="button-container">
-                            <button onclick="loadModel()">Load Model</button>
-                            <button onclick="startSimulation()">Start Simulation</button>
-                            <button onclick="stopSimulation()">Stop Simulation</button>
+                            <button class="btn btn-primary" onclick="loadModel()">Load Model</button>
+                            <button class="btn btn-primary" onclick="startSimulation()">Start Simulation</button>
+                            <button class="btn btn-primary" onclick="stopSimulation()">Stop Simulation</button>
+                            <button class="btn btn-primary" onclick="resetSimulation()">Reset Simulation</button>
+                            <button class="btn btn-primary" id="pauseButton" onclick="togglePause()" disabled>Pause</button>
                         </div>
+                        
+                        <div class="slider-container">
+                            <label for="passengerRate">Passenger Arrival Rate:</label>
+                            <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
+                            <span class="slider-value" id="rateValue">0.1</span>
+                        </div>
+                        
+                        <div class="slider-container">
+                            <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
+                            <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
+                            <span class="slider-value" id="speedValue">1.0</span>
+                        </div>
+                        
+                        <div class="slider-container">
+                            <label for="maxSteps">Maximum Steps:</label>
+                            <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
+                            <span class="slider-value" id="maxStepsValue">1000</span>
+                        </div>
+                        
+                        <div id="statusMessage" class="status-message"></div>
                     </div>
-                    <div class="slider-container">
-                        <label for="passengerRate">Passenger Arrival Rate:</label>
-                        <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
-                        <span class="slider-value" id="rateValue">0.1</span>
-                    </div>
-                    <div class="slider-container">
-                        <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
-                        <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
-                        <span class="slider-value" id="speedValue">1.0</span>
-                    </div>
-                    <div class="slider-container">
-                        <label for="maxSteps">Maximum Steps:</label>
-                        <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
-                        <span class="slider-value" id="maxStepsValue">1000</span>
-                    </div>
-                    <div id="statusMessage"></div>
                 </div>
             </div>
+            
             <div class="card stats">
                 <h2>System Stats</h2>
                 <div id="stats"></div>
             </div>
+            
             <div class="card graphs">
                 <h2>Performance Metrics</h2>
                 <div class="graph-container">
@@ -356,12 +549,21 @@
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <script>
         const socket = io();
-        const canvas = document.getElementById('building');
-        const ctx = canvas.getContext('2d');
-        const numFloors = 10;
-        const floorHeight = canvas.height / numFloors;
-        const elevatorWidth = 40;
-        const buildingPadding = 50;
+        let charts = {
+            passengers: null,
+            reward: null,
+            waitTime: null
+        };
+
+        // Initialize data arrays for charts
+        const maxDataPoints = 100;
+        const chartData = {
+            passengers: [],
+            waiting: [],
+            rewards: [],
+            waitTimes: [],
+            timestamps: []
+        };
 
         // Set up passenger rate slider
         const rateSlider = document.getElementById('passengerRate');
@@ -500,7 +702,18 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    showStatus('Model loaded successfully');
+                    showStatus(result.message);
+                    
+                    // Update the configuration inputs to match the model requirements
+                    document.getElementById('numFloors').value = result.num_floors;
+                    document.getElementById('numElevators').value = result.num_elevators;
+                    
+                    // Update visualization with new configuration
+                    initializeVisualization(result.num_floors, result.num_elevators);
+                    
+                    // Disable configuration inputs while model is loaded
+                    document.getElementById('numFloors').disabled = true;
+                    document.getElementById('numElevators').disabled = true;
                 } else {
                     showStatus(result.message, true);
                 }
@@ -510,19 +723,34 @@
         }
 
         async function startSimulation() {
+            console.log('Starting simulation...');
             try {
-                const response = await fetch('/start_simulation', {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus('Simulation started');
+                if (await updateConfiguration()) {
+                    console.log('Configuration updated, starting simulation...');
+                    const response = await fetch('/start_simulation', {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    
+                    console.log('Simulation start response:', data);
+                    if (data.status === 'success') {
+                        console.log('Simulation started successfully');
+                        showStatus('Simulation started successfully');
+                        document.getElementById('pauseButton').disabled = false;  // Enable pause button
+                        document.getElementById('pauseButton').textContent = 'Pause';  // Reset text
+                    } else {
+                        const error = 'Failed to start simulation';
+                        console.error(error);
+                        showStatus(error, true);
+                    }
                 } else {
-                    showStatus('Error starting simulation', true);
+                    console.log('Configuration update failed, simulation not started');
                 }
             } catch (error) {
-                showStatus('Error starting simulation: ' + error, true);
+                const errorMsg = `Error starting simulation: ${error.message}`;
+                console.error(errorMsg);
+                console.error('Full error:', error);
+                showStatus(errorMsg, true);
             }
         }
 
@@ -535,6 +763,17 @@
                 
                 if (result.status === 'success') {
                     showStatus('Simulation stopped');
+                    
+                    // Re-enable configuration inputs
+                    document.getElementById('numFloors').disabled = false;
+                    document.getElementById('numElevators').disabled = false;
+                    
+                    // Clear the file input
+                    document.getElementById('modelFile').value = '';
+                    
+                    // Disable and reset pause button
+                    document.getElementById('pauseButton').disabled = true;
+                    document.getElementById('pauseButton').textContent = 'Pause';
                 } else {
                     showStatus('Error stopping simulation', true);
                 }
@@ -543,98 +782,165 @@
             }
         }
 
-        function drawBuilding() {
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw floors
-            for (let i = 0; i < numFloors; i++) {
-                // Draw floor line
-                ctx.beginPath();
-                ctx.moveTo(buildingPadding, i * floorHeight);
-                ctx.lineTo(canvas.width - buildingPadding, i * floorHeight);
-                ctx.strokeStyle = '#333';
-                ctx.stroke();
+        async function togglePause() {
+            try {
+                const pauseButton = document.getElementById('pauseButton');
+                const isPausing = pauseButton.textContent === 'Pause';
                 
-                // Draw floor number
-                ctx.font = '12px Arial';
-                ctx.fillStyle = '#333';
-                ctx.textAlign = 'right';
-                ctx.fillText(`Floor ${numFloors - i - 1}`, buildingPadding - 5, i * floorHeight + 20);
+                const response = await fetch('/pause_simulation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ pause: isPausing })
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    pauseButton.textContent = isPausing ? 'Resume' : 'Pause';
+                    showStatus(isPausing ? 'Simulation paused' : 'Simulation resumed');
+                } else {
+                    showStatus('Failed to ' + (isPausing ? 'pause' : 'resume') + ' simulation', true);
+                }
+            } catch (error) {
+                showStatus('Error toggling pause: ' + error, true);
             }
         }
 
-        function drawElevators(positions, directions, passengers) {
-            const elevatorSpacing = (canvas.width - 2 * buildingPadding) / (positions.length + 1);
-            
-            positions.forEach((pos, index) => {
-                const x = buildingPadding + elevatorSpacing * (index + 1) - elevatorWidth/2;
-                const y = canvas.height - (pos + 1) * floorHeight;
+        async function resetSimulation() {
+            try {
+                // First stop the simulation
+                await stopSimulation();
                 
-                // Draw elevator shaft
-                ctx.strokeStyle = '#ccc';
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(x + elevatorWidth/2, 0);
-                ctx.lineTo(x + elevatorWidth/2, canvas.height);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                const response = await fetch('/reset_simulation', {
+                    method: 'POST'
+                });
+                const result = await response.json();
                 
-                // Draw elevator background
-                // Change color based on passenger count
-                const passengerCount = passengers[index];
-                const occupancyRatio = Math.min(passengerCount / 5, 1); // Assume max capacity of 5 for color scaling
-                const red = Math.floor(76 + occupancyRatio * 179);  // 4CAF50 to E91E63
-                const green = Math.floor(175 - occupancyRatio * 95);
-                const blue = Math.floor(80 - occupancyRatio * 47);
-                ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
-                ctx.fillRect(x, y, elevatorWidth, floorHeight - 2);
-                
-                // Draw elevator ID and direction
-                ctx.fillStyle = '#fff';
-                ctx.font = '16px Arial';
-                ctx.textAlign = 'center';
-                const directionSymbol = directions[index] === 1 ? '↑' : directions[index] === 2 ? '↓' : '•';
-                ctx.fillText(`E${index + 1} ${directionSymbol}`, x + elevatorWidth/2, y + 20);
-                
-                // Draw passenger count with icon
-                if (passengerCount > 0) {
-                    // Draw a background for better visibility
-                    const text = `${passengerCount} 🧍‍♂️`;
-                    ctx.font = '14px Arial';
-                    const textMetrics = ctx.measureText(text);
-                    const textWidth = textMetrics.width;
-                    const textHeight = 20;
-                    const padding = 5;
+                if (result.status === 'success') {
+                    showStatus('Simulation reset successfully');
                     
-                    // Draw semi-transparent background
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                    ctx.fillRect(
-                        x + (elevatorWidth - textWidth) / 2 - padding,
-                        y + floorHeight - 30,
-                        textWidth + 2 * padding,
-                        textHeight + 2 * padding
-                    );
+                    // Reset all charts
+                    chartData.timestamps = [];
+                    chartData.passengers = [];
+                    chartData.waiting = [];
+                    chartData.rewards = [];
+                    chartData.waitTimes = [];
                     
-                    // Draw text
-                    ctx.fillStyle = '#fff';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(text, x + elevatorWidth/2, y + floorHeight - 15);
+                    charts.passengers.data.labels = [];
+                    charts.passengers.data.datasets[0].data = [];
+                    charts.passengers.data.datasets[1].data = [];
+                    charts.passengers.update('none');
+                    
+                    charts.reward.data.labels = [];
+                    charts.reward.data.datasets[0].data = [];
+                    charts.reward.update('none');
+                    
+                    charts.waitTime.data.labels = [];
+                    charts.waitTime.data.datasets[0].data = [];
+                    charts.waitTime.update('none');
+                    
+                    // Reset the visualization
+                    const numFloors = parseInt(document.getElementById('numFloors').value);
+                    const numElevators = parseInt(document.getElementById('numElevators').value);
+                    initializeVisualization(numFloors, numElevators);
+                    
+                    // Reset sliders to default values
+                    rateSlider.value = 0.1;
+                    rateValue.textContent = '0.1';
+                    await updatePassengerRate(0.1);
+                    
+                    speedSlider.value = 1.0;
+                    speedValue.textContent = '1.0';
+                    await updateSimulationSpeed(1.0);
+                    
+                    maxStepsSlider.value = 1000;
+                    maxStepsValue.textContent = '1000';
+                    await updateMaxSteps(1000);
+                    
+                    // Clear model file input
+                    document.getElementById('modelFile').value = '';
+                    
+                    // Re-enable configuration inputs
+                    document.getElementById('numFloors').disabled = false;
+                    document.getElementById('numElevators').disabled = false;
+                } else {
+                    showStatus('Failed to reset simulation: ' + result.message, true);
                 }
-            });
+            } catch (error) {
+                showStatus('Error resetting simulation: ' + error.message, true);
+            }
         }
 
-        function drawWaitingPassengers(passengers) {
-            passengers.forEach((count, floor) => {
-                if (count > 0) {
-                    const y = canvas.height - (floor + 1) * floorHeight + floorHeight/2;
-                    ctx.font = '12px Arial';
-                    ctx.fillStyle = '#E91E63';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(`${count} 🧍‍♂️`, canvas.width - buildingPadding + 5, y + 5);
+        async function requestElevator(floorNumber) {
+            console.log(`Requesting elevator at floor ${floorNumber}`);
+            try {
+                const response = await fetch('/request_elevator', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ floor: floorNumber })
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    const button = document.querySelector(`.floor:nth-child(${floorNumber + 1}) .floor-button`);
+                    if (button) {
+                        button.classList.add('active');
+                    }
+                    showStatus(`Elevator requested at floor ${floorNumber}`);
+                } else {
+                    showStatus(`Failed to request elevator: ${result.message}`, true);
+                }
+            } catch (error) {
+                console.error('Error requesting elevator:', error);
+                showStatus(`Error requesting elevator: ${error.message}`, true);
+            }
+        }
+
+        socket.on('stats_update', (data) => {
+            // Update elevator positions
+            data.elevator_positions.forEach((position, index) => {
+                const elevator = document.getElementById(`elevator-${index}`);
+                if (elevator) {
+                    const floorHeight = 80; // Match the floor height from CSS
+                    const bottomPosition = position * floorHeight;
+                    elevator.style.transform = `translateY(${-(bottomPosition)}px)`;
+                    
+                    // Update passenger count
+                    const passengerCount = data.elevator_passengers[index];
+                    const passengerCountElement = elevator.querySelector('.passenger-count');
+                    if (passengerCountElement) {
+                        passengerCountElement.textContent = passengerCount;
+                    }
+                    
+                    // Update direction indicator
+                    const directionIndicator = elevator.querySelector('.direction');
+                    if (directionIndicator) {
+                        const direction = data.elevator_directions[index];
+                        directionIndicator.textContent = direction === 1 ? '↑' : direction === 2 ? '↓' : '•';
+                    }
                 }
             });
-        }
+            
+            // Update waiting passengers
+            data.waiting_passengers.forEach((count, floor) => {
+                const waitingCount = document.getElementById(`waiting-${floor}`);
+                if (waitingCount) {
+                    waitingCount.textContent = `Waiting: ${count}`;
+                }
+                
+                // Update floor button state
+                const button = document.querySelector(`.floor:nth-child(${floor + 1}) .floor-button`);
+                if (button) {
+                    button.classList.toggle('active', count > 0);
+                }
+            });
+            
+            updateStats(data);
+            updateCharts(data);
+        });
 
         function updateStats(data) {
             const statsDiv = document.getElementById('stats');
@@ -676,109 +982,11 @@
             }
         }
 
-        // Initialize data arrays for charts
-        const maxDataPoints = 100;
-        const chartData = {
-            passengers: [],
-            waiting: [],
-            rewards: [],
-            waitTimes: [],
-            timestamps: []
-        };
-
-        // Initialize charts
-        const passengersChart = new Chart(document.getElementById('passengersChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Total Passengers',
-                    data: [],
-                    borderColor: '#4CAF50',
-                    tension: 0.4
-                }, {
-                    label: 'Waiting Passengers',
-                    data: [],
-                    borderColor: '#E91E63',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        const rewardChart = new Chart(document.getElementById('rewardChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Reward',
-                    data: [],
-                    borderColor: '#2196F3',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                scales: {
-                    y: {
-                        beginAtZero: false
-                    }
-                }
-            }
-        });
-
-        const waitTimeChart = new Chart(document.getElementById('waitTimeChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Average Wait Time (in simulation steps)',
-                    data: [],
-                    borderColor: '#FF9800',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Average Passenger Waiting Time (steps from appearance to pickup)'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Average wait: ${context.parsed.y.toFixed(1)} steps`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Steps'
-                        }
-                    }
-                }
-            }
-        });
-
         function updateCharts(data) {
+            if (!charts.passengers) {
+                return; // Charts not initialized yet
+            }
+
             const timestamp = new Date().toLocaleTimeString();
             const totalPassengers = data.elevator_passengers.reduce((a, b) => a + b, 0);
             const totalWaiting = data.waiting_passengers.reduce((a, b) => a + b, 0);
@@ -800,18 +1008,18 @@
             }
             
             // Update charts
-            passengersChart.data.labels = chartData.timestamps;
-            passengersChart.data.datasets[0].data = chartData.passengers;
-            passengersChart.data.datasets[1].data = chartData.waiting;
-            passengersChart.update('none');
+            charts.passengers.data.labels = chartData.timestamps;
+            charts.passengers.data.datasets[0].data = chartData.passengers;
+            charts.passengers.data.datasets[1].data = chartData.waiting;
+            charts.passengers.update('none');
             
-            rewardChart.data.labels = chartData.timestamps;
-            rewardChart.data.datasets[0].data = chartData.rewards;
-            rewardChart.update('none');
+            charts.reward.data.labels = chartData.timestamps;
+            charts.reward.data.datasets[0].data = chartData.rewards;
+            charts.reward.update('none');
             
-            waitTimeChart.data.labels = chartData.timestamps;
-            waitTimeChart.data.datasets[0].data = chartData.waitTimes;
-            waitTimeChart.update('none');
+            charts.waitTime.data.labels = chartData.timestamps;
+            charts.waitTime.data.datasets[0].data = chartData.waitTimes;
+            charts.waitTime.update('none');
         }
 
         socket.on('connect', () => {
@@ -819,16 +1027,273 @@
             showStatus('Connected to server');
         });
 
-        socket.on('stats_update', (data) => {
-            drawBuilding();
-            drawElevators(data.elevator_positions, data.elevator_directions, data.elevator_passengers);
-            drawWaitingPassengers(data.waiting_passengers);
-            updateStats(data);
-            updateCharts(data);
-        });
+        // Add these new functions
+        function showWelcomeModal() {
+            document.getElementById('welcomeModal').style.display = 'flex';
+        }
+        
+        function hideWelcomeModal() {
+            document.getElementById('welcomeModal').style.display = 'none';
+        }
+        
+        function showConfigModal() {
+            // Stop current simulation
+            stopSimulation();
+            // Show welcome modal for reconfiguration
+            showWelcomeModal();
+        }
+        
+        async function updateConfiguration() {
+            const numElevators = parseInt(document.getElementById('numElevators').value);
+            const numFloors = parseInt(document.getElementById('numFloors').value);
+            
+            console.log(`Attempting to update configuration - Elevators: ${numElevators}, Floors: ${numFloors}`);
+            
+            if (isNaN(numElevators) || isNaN(numFloors)) {
+                const error = 'Invalid input: Please enter valid numbers for elevators and floors';
+                console.error(error);
+                alert(error);
+                return false;
+            }
+            
+            try {
+                console.log('Sending configuration update request...');
+                const response = await fetch('/update_configuration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        num_elevators: numElevators,
+                        num_floors: numFloors
+                    })
+                });
+                
+                console.log('Received response from server');
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.status === 'success') {
+                    console.log('Configuration updated successfully');
+                    hideWelcomeModal();
+                    showStatus('Configuration updated successfully');
+                    // Clear and reinitialize the visualization
+                    initializeVisualization(numFloors, numElevators);
+                    return true;
+                } else {
+                    const errorMsg = data.message || 'Failed to update configuration';
+                    console.error('Configuration update failed:', errorMsg);
+                    alert(errorMsg);
+                    showStatus(errorMsg, true);
+                    return false;
+                }
+            } catch (error) {
+                const errorMsg = `Error updating configuration: ${error.message}`;
+                console.error(errorMsg);
+                console.error('Full error:', error);
+                alert(errorMsg);
+                showStatus(errorMsg, true);
+                return false;
+            }
+        }
+        
+        function initializeVisualization(numFloors, numElevators) {
+            console.log(`Initializing visualization with ${numFloors} floors and ${numElevators} elevators`);
+            try {
+                const building = document.querySelector('.building');
+                const floors = document.querySelector('.floors');
+                
+                if (!building || !floors) {
+                    console.error('Could not find building or floors elements');
+                    return;
+                }
+                
+                // Clear existing content
+                floors.innerHTML = '';
+                console.log('Cleared existing floors');
+                
+                // Create floors
+                for (let i = 0; i < numFloors; i++) {
+                    const floor = document.createElement('div');
+                    floor.className = 'floor';
+                    floor.innerHTML = `
+                        <div class="floor-info">
+                            <span class="floor-number">Floor ${i}</span>
+                            <span class="waiting-count" id="waiting-${i}">Waiting: 0</span>
+                        </div>
+                        <button class="floor-button" onclick="requestElevator(${i})">↑</button>
+                    `;
+                    floors.appendChild(floor);
+                }
+                console.log('Created new floors');
+                
+                // Set building height dynamically
+                const floorHeight = 80; // height per floor
+                building.style.height = `${numFloors * floorHeight}px`;
+                
+                // Remove existing elevator shafts
+                const existingShafts = document.querySelectorAll('.elevator-shaft');
+                existingShafts.forEach(shaft => shaft.remove());
+                console.log('Removed existing elevator shafts');
+                
+                // Calculate positions for elevator shafts
+                const shaftWidth = 80;
+                const shaftMargin = 10;
+                const totalWidth = (shaftWidth + shaftMargin * 2) * numElevators;
+                building.style.paddingRight = `${totalWidth}px`;
+                
+                for (let i = 0; i < numElevators; i++) {
+                    const shaft = document.createElement('div');
+                    shaft.className = 'elevator-shaft';
+                    shaft.style.right = `${i * (shaftWidth + shaftMargin * 2)}px`;
+                    
+                    const elevator = document.createElement('div');
+                    elevator.className = 'elevator';
+                    elevator.id = `elevator-${i}`;
+                    elevator.innerHTML = `
+                        <span>E${i + 1}</span>
+                        <span class="direction">•</span>
+                        <span class="passenger-count" id="passengers-${i}">0</span>
+                    `;
+                    shaft.appendChild(elevator);
+                    building.appendChild(shaft);
+                }
+                console.log('Created new elevator shafts');
+                
+            } catch (error) {
+                console.error('Error initializing visualization:', error);
+                showStatus('Error initializing visualization: ' + error.message, true);
+            }
+        }
+        
+        // Initialize charts
+        function initializeCharts() {
+            // Passengers Chart
+            const passengersCtx = document.getElementById('passengersChart').getContext('2d');
+            charts.passengers = new Chart(passengersCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'In Elevators',
+                            data: [],
+                            borderColor: 'rgb(67, 97, 238)',
+                            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Waiting',
+                            data: [],
+                            borderColor: 'rgb(247, 37, 133)',
+                            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Passenger Distribution'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Passengers'
+                            }
+                        }
+                    }
+                }
+            });
 
-        // Initial building draw
-        drawBuilding();
+            // Reward Chart
+            const rewardCtx = document.getElementById('rewardChart').getContext('2d');
+            charts.reward = new Chart(rewardCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Reward',
+                        data: [],
+                        borderColor: 'rgb(76, 201, 240)',
+                        backgroundColor: 'rgba(76, 201, 240, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'System Reward'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Reward Value'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Wait Time Chart
+            const waitTimeCtx = document.getElementById('waitTimeChart').getContext('2d');
+            charts.waitTime = new Chart(waitTimeCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Wait Time',
+                        data: [],
+                        borderColor: 'rgb(58, 12, 163)',
+                        backgroundColor: 'rgba(58, 12, 163, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Average Waiting Time'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Time (steps)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Call initializeCharts when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            showWelcomeModal();
+            initializeCharts();  // Initialize the charts
+        });
     </script>
 </body>
 </html> 

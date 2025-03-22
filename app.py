@@ -24,15 +24,87 @@ socketio = SocketIO(app, async_mode='gevent')
 env = None
 model = None
 simulation_active = False
+simulation_paused = False  # New flag for pause state
 simulation_thread = None
 simulation_speed = 1.0  # seconds between steps
 max_simulation_steps = 1000
 using_model = False
+num_elevators = 3  # Default number of elevators
+num_floors = 10    # Default number of floors
 
 def init_environment():
     global env
-    env = MultiElevatorEnv(render_mode=None, max_steps=max_simulation_steps, passenger_rate=0.1, num_elevators=3)
+    env = MultiElevatorEnv(render_mode=None, max_steps=max_simulation_steps, passenger_rate=0.1, 
+                          num_elevators=num_elevators, num_floors=num_floors)
     env.reset()
+
+@app.route('/update_configuration', methods=['POST'])
+def update_configuration():
+    global num_elevators, num_floors, simulation_active, env, model, using_model
+    try:
+        print("Received configuration update request")  # Debug log
+        data = request.json
+        print(f"Request data: {data}")  # Debug log
+        
+        if not data:
+            print("No JSON data received")  # Debug log
+            return jsonify({'status': 'error', 'message': 'No configuration data provided'})
+        
+        new_elevators = int(data.get('num_elevators', 3))
+        new_floors = int(data.get('num_floors', 10))
+        
+        print(f"Parsed values - Elevators: {new_elevators}, Floors: {new_floors}")  # Debug log
+        
+        # If using a trained model, enforce the model's expected configuration
+        if using_model and model is not None:
+            if new_floors != 10 or new_elevators != 3:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Cannot change configuration while using a trained model. The current model requires exactly 10 floors and 3 elevators. Please stop the simulation and unload the model first.'
+                })
+        
+        # Validate input
+        if new_elevators < 1 or new_elevators > 10:
+            print(f"Invalid elevator count: {new_elevators}")  # Debug log
+            return jsonify({'status': 'error', 'message': 'Number of elevators must be between 1 and 10'})
+        if new_floors < 2 or new_floors > 20:
+            print(f"Invalid floor count: {new_floors}")  # Debug log
+            return jsonify({'status': 'error', 'message': 'Number of floors must be between 2 and 20'})
+            
+        num_elevators = new_elevators
+        num_floors = new_floors
+        
+        print(f"Configuration updated - Elevators: {num_elevators}, Floors: {num_floors}")  # Debug log
+        
+        # If simulation is active, stop it and reinitialize
+        if simulation_active:
+            print("Stopping active simulation")  # Debug log
+            simulation_active = False
+            if simulation_thread:
+                simulation_thread.join(timeout=2)
+        
+        try:
+            # Reinitialize environment with new configuration
+            print("Reinitializing environment")  # Debug log
+            init_environment()
+            print("Environment reinitialized successfully")  # Debug log
+        except Exception as env_error:
+            print(f"Error reinitializing environment: {str(env_error)}")  # Debug log
+            return jsonify({'status': 'error', 'message': f'Failed to initialize environment: {str(env_error)}'})
+        
+        return jsonify({
+            'status': 'success',
+            'num_elevators': num_elevators,
+            'num_floors': num_floors
+        })
+    except ValueError as ve:
+        error_msg = f"Value error in configuration: {str(ve)}"
+        print(error_msg)  # Debug log
+        return jsonify({'status': 'error', 'message': error_msg})
+    except Exception as e:
+        error_msg = f"Unexpected error in configuration: {str(e)}"
+        print(error_msg)  # Debug log
+        return jsonify({'status': 'error', 'message': error_msg})
 
 @app.route('/update_passenger_rate', methods=['POST'])
 def update_passenger_rate():
@@ -67,10 +139,28 @@ def update_max_steps():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
+@app.route('/pause_simulation', methods=['POST'])
+def pause_simulation():
+    global simulation_paused
+    try:
+        data = request.json
+        should_pause = data.get('pause', True)
+        simulation_paused = should_pause
+        return jsonify({
+            'status': 'success',
+            'paused': simulation_paused
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
 def simulation_thread_function():
-    global env, simulation_active, simulation_speed, max_simulation_steps, using_model
+    global env, simulation_active, simulation_paused, simulation_speed, max_simulation_steps, using_model
     
     while simulation_active and env.current_step < max_simulation_steps:
+        if simulation_paused:
+            time.sleep(0.1)  # Sleep briefly while paused
+            continue
+            
         if using_model and model is not None:
             obs = env._get_obs()
             action, _ = model.predict(obs)
@@ -136,7 +226,7 @@ def stop_simulation():
 
 @app.route('/load_model', methods=['POST'])
 def load_model():
-    global model, using_model
+    global model, using_model, num_floors, num_elevators
     
     if 'model_file' not in request.files:
         return jsonify({'status': 'error', 'message': 'No file provided'})
@@ -154,13 +244,67 @@ def load_model():
         model = PPO.load(temp_path)
         using_model = True
         
+        # Set the configuration to match the model's requirements
+        num_floors = 10
+        num_elevators = 3
+        
+        # Reinitialize environment with the model's required configuration
+        init_environment()
+        
         # Clean up
         os.remove(temp_path)
         
-        return jsonify({'status': 'success', 'message': 'Model loaded successfully'})
+        return jsonify({
+            'status': 'success',
+            'message': 'Model loaded successfully. Environment configured for 10 floors and 3 elevators.',
+            'num_floors': num_floors,
+            'num_elevators': num_elevators
+        })
     except Exception as e:
         using_model = False
+        model = None
         return jsonify({'status': 'error', 'message': f'Error loading model: {str(e)}'})
+
+@app.route('/request_elevator', methods=['POST'])
+def request_elevator():
+    global env
+    try:
+        data = request.json
+        floor = int(data.get('floor', 0))
+        
+        if env is None:
+            return jsonify({'status': 'error', 'message': 'Environment not initialized'})
+            
+        if floor < 0 or floor >= env.num_floors:
+            return jsonify({'status': 'error', 'message': 'Invalid floor number'})
+            
+        # Generate a passenger at the requested floor
+        env._generate_passenger(start_floor=floor)
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/reset_simulation', methods=['POST'])
+def reset_simulation():
+    global env, simulation_active, simulation_thread, model, using_model
+    try:
+        # Stop simulation if running
+        simulation_active = False
+        if simulation_thread:
+            simulation_thread.join(timeout=2)
+            simulation_thread = None
+        
+        # Reset environment
+        init_environment()
+        
+        # Clear model if any
+        model = None
+        using_model = False
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000) 

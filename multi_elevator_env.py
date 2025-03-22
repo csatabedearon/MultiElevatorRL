@@ -7,13 +7,13 @@ from collections import deque
 
 class MultiElevatorEnv(gym.Env):
     """
-    An extended elevator environment with multiple elevators and 10 floors.
+    An extended elevator environment with configurable number of elevators and floors.
     The goal is to minimize passenger waiting time.
     """
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1000}
 
-    def __init__(self, render_mode=None, max_steps=500, passenger_rate=0.1, num_elevators=3):
-        self.num_floors = 10
+    def __init__(self, render_mode=None, max_steps=500, passenger_rate=0.1, num_elevators=3, num_floors=10):
+        self.num_floors = num_floors
         self.num_elevators = num_elevators
         self.max_steps = max_steps
         self.passenger_rate = passenger_rate
@@ -99,9 +99,13 @@ class MultiElevatorEnv(gym.Env):
             for i in range(1, self.num_elevators - 1):
                 self.elevator_positions[i] = (i * self.num_floors) // self.num_elevators
     
-    def _generate_passenger(self):
+    def _generate_passenger(self, start_floor=None):
         """Generate a new passenger with random start and destination floors"""
-        start_floor = self.np_random.integers(0, self.num_floors)
+        if start_floor is None:
+            start_floor = self.np_random.integers(0, self.num_floors)
+        elif start_floor < 0 or start_floor >= self.num_floors:
+            raise ValueError(f"Invalid start floor: {start_floor}")
+            
         destination_floor = start_floor
         while destination_floor == start_floor:
             destination_floor = self.np_random.integers(0, self.num_floors)
@@ -111,7 +115,7 @@ class MultiElevatorEnv(gym.Env):
         self.floor_buttons[start_floor] = True
         
         # Track passenger for waiting time calculation
-        passenger_id = f"{self.current_step}_{start_floor}_{destination_floor}"
+        passenger_id = f"{self.current_step}_{start_floor}_{destination_floor}_{self.waiting_passengers[start_floor]}"
         self.waiting_time[passenger_id] = {
             "start_floor": start_floor,
             "destination_floor": destination_floor,
@@ -452,6 +456,7 @@ class MultiElevatorEnv(gym.Env):
     def _process_pickup(self, elevator_id, current_floor):
         """Process passenger pickup at current floor"""
         if self.waiting_passengers[current_floor] > 0:
+            # Get all waiting passengers at this floor
             passengers_to_pickup = []
             for passenger_id, data in self.waiting_time.items():
                 if (data["start_floor"] == current_floor and 
@@ -459,7 +464,7 @@ class MultiElevatorEnv(gym.Env):
                     data["elevator_id"] is None):  # Not yet picked up by any elevator
                     passengers_to_pickup.append(passenger_id)
             
-            # Pick up passengers
+            # Pick up all waiting passengers
             for passenger_id in passengers_to_pickup:
                 self.passengers_in_elevators[elevator_id].append(passenger_id)
                 self.waiting_time[passenger_id]["wait_end"] = self.current_step
@@ -469,16 +474,20 @@ class MultiElevatorEnv(gym.Env):
                 
                 # Decrease waiting passenger count
                 self.waiting_passengers[current_floor] -= 1
-                
+            
             # Check if we picked up all waiting passengers at this floor
             if self.waiting_passengers[current_floor] == 0:
                 self.floor_buttons[current_floor] = False
+            else:
+                # If there are still passengers waiting, keep the button active
+                self.floor_buttons[current_floor] = True
     
     def _render_setup(self):
         """Set up the pygame rendering"""
         pygame.init()
         self.screen_width = 800
-        self.screen_height = 800
+        # Fixed window height
+        self.screen_height = 600
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Multi-Elevator Simulator")
         self.clock = pygame.time.Clock()
@@ -506,96 +515,76 @@ class MultiElevatorEnv(gym.Env):
         self.screen.fill(self.colors["background"])
         
         # Calculate dimensions
-        floor_height = self.screen_height // (self.num_floors + 1)
+        info_height = 80  # Height reserved for info section at top
+        available_height = self.screen_height - info_height
+        floor_height = available_height // self.num_floors
         elevator_width = 60
         elevator_height = floor_height - 10
         elevator_spacing = self.screen_width // (self.num_elevators + 2)
         
         # Draw floors
-        self._draw_floors(floor_height)
+        self._draw_floors(floor_height, info_height)
         
         # Draw elevators
-        self._draw_elevators(elevator_spacing, elevator_width, elevator_height, floor_height)
+        self._draw_elevators(elevator_spacing, elevator_width, elevator_height, floor_height, info_height)
         
-        # Draw info
+        # Draw info at the top
         self._draw_info()
             
         pygame.display.flip()
         self.clock.tick(self.metadata["render_fps"])
         pygame.event.pump()
     
-    def _draw_floors(self, floor_height):
+    def _draw_floors(self, floor_height, y_offset):
         """Draw floor lines, labels and buttons"""
         for floor in range(self.num_floors):
             # Calculate y position (reversed so floor 0 is at bottom)
-            y = self.screen_height - (floor + 1) * floor_height
+            y = self.screen_height - (floor + 1) * floor_height - y_offset
             
             # Draw floor line
             pygame.draw.line(self.screen, self.colors["floor"], 
                             (0, y + floor_height), 
-                            (self.screen_width, y + floor_height), 3)
+                            (self.screen_width, y + floor_height), 2)
             
             # Floor number
             text = self.font.render(f"Floor {floor}", True, self.colors["text"])
-            self.screen.blit(text, (10, y + floor_height // 2 - 10))
+            text_rect = text.get_rect(midleft=(10, y + floor_height // 2))
+            self.screen.blit(text, text_rect)
             
             # Floor button (on right side)
             button_color = self.colors["button_on"] if self.floor_buttons[floor] else self.colors["button_off"]
             pygame.draw.circle(self.screen, button_color, 
-                              (self.screen_width - 30, y + floor_height // 2), 15)
+                              (self.screen_width - 30, y + floor_height // 2), 12)
             
             # Waiting passengers count
             if self.waiting_passengers[floor] > 0:
                 text = self.font.render(f"Waiting: {self.waiting_passengers[floor]}", True, self.colors["text"])
-                self.screen.blit(text, (self.screen_width - 150, y + floor_height // 2 - 30))
+                text_rect = text.get_rect(midright=(self.screen_width - 50, y + floor_height // 2))
+                self.screen.blit(text, text_rect)
     
-    def _draw_elevators(self, elevator_spacing, elevator_width, elevator_height, floor_height):
+    def _draw_elevators(self, elevator_spacing, elevator_width, elevator_height, floor_height, y_offset):
         """Draw elevators with buttons and passengers"""
         for elev_id in range(self.num_elevators):
             elevator_x = (elev_id + 1) * elevator_spacing - elevator_width // 2
-            elevator_y = self.screen_height - (self.elevator_positions[elev_id] + 1) * floor_height
+            elevator_y = self.screen_height - (self.elevator_positions[elev_id] + 1) * floor_height - y_offset
             
             # Use different color for each elevator
             elevator_color = self.colors["elevator"][min(elev_id, len(self.colors["elevator"])-1)]
             pygame.draw.rect(self.screen, elevator_color, 
                             (elevator_x, elevator_y, elevator_width, elevator_height))
             
-            # Draw elevator ID
-            text = self.font.render(f"E{elev_id}", True, (255, 255, 255))
+            # Draw elevator ID and passenger count
+            text = self.font.render(f"E{elev_id} (P:{len(self.passengers_in_elevators[elev_id])})", True, (255, 255, 255))
             text_rect = text.get_rect(center=(elevator_x + elevator_width // 2, 
-                                            elevator_y + 20))
+                                            elevator_y + elevator_height // 2))
             self.screen.blit(text, text_rect)
             
-            # Draw elevator buttons
-            self._draw_elevator_buttons(elev_id, elevator_x, elevator_y)
-            
-            # Draw passengers in elevator
-            text = self.font.render(f"P: {len(self.passengers_in_elevators[elev_id])}", True, (255, 255, 255))
-            self.screen.blit(text, (elevator_x, elevator_y + elevator_height - 20))
-    
-    def _draw_elevator_buttons(self, elev_id, elevator_x, elevator_y):
-        """Draw buttons inside elevator"""
-        btn_size = 15
-        btn_margin = 3
-        btn_start_x = elevator_x + 5
-        btn_start_y = elevator_y + 40
-        
-        for floor in range(self.num_floors):
-            btn_row = floor // 5
-            btn_col = floor % 5
-            btn_x = btn_start_x + btn_col * (btn_size + btn_margin)
-            btn_y = btn_start_y + btn_row * (btn_size + btn_margin)
-            
-            button_color = self.colors["button_on"] if self.elevator_buttons[floor, elev_id] else self.colors["button_off"]
-            pygame.draw.rect(self.screen, button_color, 
-                            (btn_x, btn_y, btn_size, btn_size))
-            
-            # Only show floor numbers for first elevator to avoid clutter
-            
-            text_color = (255, 255, 255) if self.elevator_buttons[floor, elev_id] else (0, 0, 0)
-            text = self.button_font.render(str(floor), True, text_color)
-            text_rect = text.get_rect(center=(btn_x + btn_size // 2, btn_y + btn_size // 2))
-            self.screen.blit(text, text_rect)
+            # Draw direction indicator
+            direction_symbol = "↑" if self.elevator_directions[elev_id] == 1 else "↓" if self.elevator_directions[elev_id] == 2 else "•"
+            dir_text = self.font.render(direction_symbol, True, (255, 255, 255))
+            dir_rect = dir_text.get_rect(center=(elevator_x + elevator_width // 2, 
+                                               elevator_y + elevator_height - 15))
+            self.screen.blit(dir_text, dir_rect)
     
     def _draw_info(self):
         """Draw simulation information"""
@@ -604,12 +593,14 @@ class MultiElevatorEnv(gym.Env):
             f"Step: {self.current_step}/{self.max_steps}",
             f"Total served: {self.total_passengers_served}",
             f"Avg wait time: {avg_wait_time:.2f} steps",
-            f"Reward: {self.current_reward:.2f}"  # Add reward display
+            f"Reward: {self.current_reward:.2f}"
         ]
         
+        # Draw info at the very top
         for i, text in enumerate(info_text):
             surf = self.font.render(text, True, self.colors["text"])
-            self.screen.blit(surf, (10, 10 + i * 25))
+            rect = surf.get_rect(topleft=(10 + i * (self.screen_width // len(info_text)), 10))
+            self.screen.blit(surf, rect)
     
     def close(self):
         """Close the environment and pygame if open"""
