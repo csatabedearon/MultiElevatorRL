@@ -286,8 +286,18 @@
         
         .button-group {
             display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #e91e63;
+            transform: translateY(-1px);
         }
         
         /* Responsive adjustments */
@@ -460,7 +470,9 @@
     <!-- Welcome Modal -->
     <div id="welcomeModal" class="modal-overlay">
         <div class="modal">
+            <div class="modal-content">
             <h2>Welcome to Multi-Elevator Simulator</h2>
+                <p>Please configure your elevator system:</p>
             <div class="form-group">
                 <label for="numElevators">Number of Elevators (1-10):</label>
                 <input type="number" id="numElevators" min="1" max="10" value="3">
@@ -469,8 +481,12 @@
                 <label for="numFloors">Number of Floors (2-20):</label>
                 <input type="number" id="numFloors" min="2" max="20" value="10">
             </div>
-            <div class="btn-group">
-                <button class="btn btn-primary" onclick="startSimulation()">Start Simulation</button>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="updateConfiguration()">Update Configuration</button>
+                    <button id="overrideButton" class="btn btn-danger" style="display: none;" onclick="updateConfiguration(true)">
+                        Override Configuration
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -704,7 +720,7 @@
                 if (result.status === 'success') {
                     showStatus(result.message);
                     
-                    // Update the configuration inputs to match the model requirements
+                    // Update configuration inputs to match model's required configuration
                     document.getElementById('numFloors').value = result.num_floors;
                     document.getElementById('numElevators').value = result.num_elevators;
                     
@@ -714,6 +730,13 @@
                     // Disable configuration inputs while model is loaded
                     document.getElementById('numFloors').disabled = true;
                     document.getElementById('numElevators').disabled = true;
+                    
+                    // Update the override button visibility
+                    document.getElementById('overrideButton').style.display = 'none';
+                    
+                    // Reset any active simulation
+                    document.getElementById('pauseButton').disabled = true;
+                    document.getElementById('pauseButton').textContent = 'Pause';
                 } else {
                     showStatus(result.message, true);
                 }
