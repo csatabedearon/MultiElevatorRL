@@ -201,6 +201,19 @@ def pause_simulation():
 
 def simulation_thread_function() -> None:
     global env, simulation_active, simulation_paused, simulation_speed, max_simulation_steps, using_model, model
+    
+    # Initialize episode statistics
+    episode_stats = {
+        'total_reward': 0,
+        'total_passengers_served': 0,
+        'total_waiting_time': 0,
+        'max_waiting_time': 0,
+        'min_waiting_time': float('inf'),
+        'steps_taken': 0,
+        'avg_passengers_per_step': 0,
+        'total_passengers_generated': 0
+    }
+    
     while simulation_active and env.current_step < max_simulation_steps:
         if simulation_paused:
             time.sleep(0.1)
@@ -216,17 +229,22 @@ def simulation_thread_function() -> None:
                         if "Unexpected observation shape" in str(e):
                             logger.error("Observation shape mismatch during predict: %s", e)
                             adjust_environment_for_model()
-                            continue  # Skip this step; new config should take effect next step
+                            continue
                         else:
                             raise
                 except Exception as ex:
                     logger.exception("Error during model prediction: %s", ex)
-                    action = env.action_space.sample()  # Fallback to random action
+                    action = env.action_space.sample()
             else:
                 action = env.action_space.sample()
             observation, reward, terminated, truncated, info = env.step(action)
 
-        # Calculate average waiting time for reporting
+        # Update episode statistics
+        episode_stats['total_reward'] += reward
+        episode_stats['steps_taken'] = env.current_step + 1
+        episode_stats['total_passengers_generated'] = len(env.waiting_time)
+
+        # Calculate waiting time statistics
         total_wait_time = 0
         completed_passengers = 0
         for data in env.waiting_time.values():
@@ -234,7 +252,13 @@ def simulation_thread_function() -> None:
                 wait_time = data["wait_end"] - data["wait_start"]
                 total_wait_time += wait_time
                 completed_passengers += 1
+                episode_stats['max_waiting_time'] = max(episode_stats['max_waiting_time'], wait_time)
+                episode_stats['min_waiting_time'] = min(episode_stats['min_waiting_time'], wait_time)
+
+        episode_stats['total_passengers_served'] = completed_passengers
+        episode_stats['total_waiting_time'] = total_wait_time
         avg_wait_time = total_wait_time / completed_passengers if completed_passengers > 0 else 0
+        episode_stats['avg_passengers_per_step'] = len(env.waiting_time) / (env.current_step + 1)
 
         socketio.emit('stats_update', {
             'elevator_positions': env.elevator_positions.tolist(),
@@ -251,8 +275,31 @@ def simulation_thread_function() -> None:
         })
 
         if terminated or truncated or env.current_step == max_simulation_steps - 1:
-            with state_lock:
-                env.reset()
+            # Calculate final statistics
+            if episode_stats['min_waiting_time'] == float('inf'):
+                episode_stats['min_waiting_time'] = 0
+                
+            avg_waiting_time = (episode_stats['total_waiting_time'] / 
+                              episode_stats['total_passengers_served'] if episode_stats['total_passengers_served'] > 0 else 0)
+            
+            # Emit episode summary
+            socketio.emit('episode_summary', {
+                'total_reward': round(episode_stats['total_reward'], 2),
+                'avg_reward': round(episode_stats['total_reward'] / episode_stats['steps_taken'], 2),
+                'total_passengers_served': episode_stats['total_passengers_served'],
+                'total_passengers_generated': episode_stats['total_passengers_generated'],
+                'completion_rate': round(episode_stats['total_passengers_served'] / 
+                                      max(episode_stats['total_passengers_generated'], 1) * 100, 1),
+                'avg_waiting_time': round(avg_waiting_time, 2),
+                'min_waiting_time': round(episode_stats['min_waiting_time'], 2),
+                'max_waiting_time': round(episode_stats['max_waiting_time'], 2),
+                'total_steps': episode_stats['steps_taken'],
+                'avg_passengers_per_step': round(episode_stats['avg_passengers_per_step'], 2),
+                'using_model': using_model
+            })
+            
+            simulation_active = False
+            break
 
         time.sleep(simulation_speed)
 
@@ -276,12 +323,10 @@ def start_simulation():
 
 @app.route('/stop_simulation', methods=['POST'])
 def stop_simulation():
-    global simulation_active, simulation_thread, model, using_model
+    global simulation_active, simulation_thread
     simulation_active = False
     if simulation_thread:
         simulation_thread.join(timeout=2)
-    model = None
-    using_model = False
     return jsonify({'status': 'success'})
 
 @app.route('/load_model', methods=['POST'])
