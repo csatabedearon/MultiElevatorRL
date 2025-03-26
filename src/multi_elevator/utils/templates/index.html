@@ -17,14 +17,20 @@
             --dark: #2b2d42;
             --gray: #8d99ae;
             --transition: all 0.3s ease;
+            --floor-height-desktop: 80px;
+            --floor-height-tablet: 60px;
+            --floor-height-mobile: 50px;
+            --elevator-size-desktop: 70px;
+            --elevator-size-tablet: 55px;
+            --elevator-size-mobile: 45px;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             margin: 0;
@@ -32,107 +38,201 @@
             background-color: #f0f2f5;
             color: var(--dark);
             line-height: 1.6;
+            font-size: 16px; /* Base font size */
         }
-        
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 1rem;
+            width: 100%;
         }
-        
+
         .header {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
-            padding: 1.5rem 0;
+            padding: 1rem 1.5rem; /* Adjusted padding */
             text-align: center;
             border-radius: 12px;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem; /* Reduced margin */
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex; /* Use flex for alignment */
+            flex-direction: column; /* Stack items vertically */
+            align-items: center;
+            gap: 0.75rem; /* Space between title and button */
         }
-        
+
         .header h1 {
-            font-size: 2rem;
+            font-size: 1.75rem; /* Slightly smaller */
             font-weight: 600;
             margin: 0;
         }
-        
+
+        .config-button {
+            background-color: var(--primary-light); /* Lighter background */
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .config-button:hover {
+            background-color: var(--primary);
+        }
+
         .dashboard {
             display: grid;
-            grid-template-columns: 3fr 1fr;
+            grid-template-columns: repeat(3, 1fr); /* Default 3 columns: Viz, Controls/Stats, Graphs */
+            grid-template-areas:
+                "viz controls stats"
+                "viz graphs graphs";
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
-        
-        @media (max-width: 768px) {
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
-        }
-        
+
+        .viz-area { grid-area: viz; }
+        .controls-area { grid-area: controls; }
+        .stats-area { grid-area: stats; }
+        .graphs-area { grid-area: graphs; }
+
+
         .card {
             background-color: white;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             padding: 1.5rem;
             transition: var(--transition);
+            display: flex; /* Allow flex direction changes */
+            flex-direction: column;
         }
-        
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.5rem;
+        }
+
+
         .card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
         }
-        
+
+        .building-container {
+             overflow-x: auto; /* Allow horizontal scroll if needed */
+             padding-bottom: 10px; /* Space for scrollbar */
+        }
+
         .building {
             display: flex;
-            height: auto;
+            height: auto; /* Let content dictate height */
             position: relative;
             border-left: 4px solid var(--secondary);
-            overflow: visible;
-            padding-right: 20px;
+            overflow: visible; /* Important for absolute positioned elevators */
             margin-bottom: 20px;
+            min-width: 300px; /* Minimum width before scrolling */
+            /* padding-right will be set by JS */
         }
-        
+
         .floors {
             display: flex;
-            flex-direction: column-reverse;
-            width: 100%;
+            flex-direction: column-reverse; /* Floors stack bottom-up */
+            width: 100%; /* Take remaining width */
             height: auto;
         }
-        
+
         .floor {
-            flex: 0 0 80px;
+            min-height: var(--floor-height-desktop); /* Use CSS var */
             display: flex;
             border-bottom: 2px solid #eee;
             position: relative;
-            transition: var(--transition);
+            transition: background-color 0.3s ease;
             align-items: center;
             padding: 0 10px;
         }
-        
+
+        .floor:last-child {
+             border-bottom: none; /* No bottom border on the top floor */
+        }
+
         .floor:hover {
             background-color: rgba(67, 97, 238, 0.05);
         }
-        
+
         .floor-info {
-            width: 120px;
+            width: 120px; /* Adjust as needed */
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.5rem; /* Reduced padding */
             background-color: var(--light);
             border-right: 1px dashed var(--gray);
+            font-size: 0.85rem; /* Slightly smaller font */
+            flex-shrink: 0; /* Prevent shrinking */
         }
-        
+
         .floor-number {
             font-weight: 600;
             color: var(--secondary);
         }
-        
+
+        .waiting-count {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        .floor-button-container {
+            margin-left: auto; /* Push button to the right */
+            padding-left: 10px;
+        }
+
+        .floor-button {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--dark);
+        }
+
+        .floor-button:hover {
+            background-color: var(--primary-light);
+            color: white;
+        }
+
+        .floor-button.active {
+            background-color: var(--danger);
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        .elevator-shaft {
+            width: calc(var(--elevator-size-desktop) + 10px); /* Elevator size + margin */
+            height: 100%;
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.03);
+            border-radius: 4px;
+            right: 0; /* Positioned by JS */
+            top: 0;
+            bottom: 0;
+        }
+
         .elevator {
             position: absolute;
-            width: 70px;
-            height: 70px;
-            margin: 5px;
+            width: var(--elevator-size-desktop); /* Use CSS var */
+            height: var(--elevator-size-desktop); /* Use CSS var */
             background: linear-gradient(to bottom, var(--secondary), var(--primary));
             border-radius: 8px;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -142,394 +242,420 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            gap: 4px;
-            bottom: 0;
+            gap: 2px; /* Reduced gap */
+            bottom: 5px; /* Position from bottom of shaft */
+            left: 5px; /* Position from left of shaft */
+            font-size: 0.8rem; /* Smaller base font */
+            text-align: center;
         }
-        
+
+        .elevator .elevator-id {
+             font-weight: bold;
+        }
+
         .elevator .direction {
-            font-size: 1.2em;
+            font-size: 1.1em; /* Relative size */
             font-weight: bold;
+            line-height: 1;
         }
-        
+
         .elevator .passenger-count {
-            font-size: 0.9em;
+            font-size: 0.85em; /* Relative size */
             background: rgba(0, 0, 0, 0.2);
-            padding: 2px 8px;
-            border-radius: 12px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            line-height: 1;
         }
-        
-        .elevator-shaft {
-            width: 80px;
-            height: 100%;
-            position: absolute;
-            background-color: rgba(0, 0, 0, 0.03);
-            margin: 0 10px;
-            border-radius: 4px;
-            right: 0;
-            top: 0;
-            bottom: 0;
-        }
-        
+
         .btn {
-            padding: 0.75rem 1.5rem;
+            padding: 0.6rem 1.2rem; /* Slightly smaller padding */
             border: none;
             border-radius: 8px;
             cursor: pointer;
             transition: var(--transition);
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem; /* Smaller font */
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            line-height: 1.2; /* Ensure text fits */
         }
-        
+
         .btn-primary {
             background-color: var(--primary);
             color: white;
         }
-        
+
         .btn-primary:hover {
             background-color: var(--primary-light);
             transform: translateY(-1px);
         }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .stat-card {
-            padding: 1.25rem;
-            background-color: white;
-            border-radius: 12px;
-            text-align: center;
-            transition: var(--transition);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        .stat-title {
-            font-size: 0.9rem;
-            color: var(--gray);
-            margin-bottom: 0.5rem;
-        }
-        
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-        
-        .floor-button {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background-color: #e9ecef;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-left: auto;
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-        }
-        
-        .floor-button:hover {
-            background-color: var(--primary-light);
-            color: white;
-        }
-        
-        .floor-button.active {
+
+        .btn-danger {
             background-color: var(--danger);
             color: white;
-            animation: pulse 1.5s infinite;
         }
-        
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(247, 37, 133, 0.4);
-            }
-            70% {
-                transform: scale(1.05);
-                box-shadow: 0 0 0 10px rgba(247, 37, 133, 0);
-            }
-            100% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(247, 37, 133, 0);
-            }
+
+        .btn-danger:hover {
+            background-color: #e91e63;
+            transform: translateY(-1px);
         }
-        
+
+
+        /* Controls Styling */
         .control-panel {
-            background-color: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            margin-top: 1rem;
         }
-        
+
         .control-group {
-            margin-bottom: 1.25rem;
+            margin-bottom: 1rem;
         }
-        
+
         .control-label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
             color: var(--dark);
+            font-size: 0.9rem;
         }
-        
-        .button-group {
+
+        #modelFile {
+            margin: 0.5rem 0 1rem 0; /* Adjust margins */
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            width: 100%; /* Take full width */
+            font-size: 0.85rem;
+        }
+
+        .button-container {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
+            margin-bottom: 1rem; /* Space below buttons */
+            flex-wrap: wrap; /* Allow buttons to wrap */
+        }
+
+        .slider-container {
+            margin-bottom: 1rem; /* Consistent spacing */
+        }
+
+        .slider-container label {
+            display: block;
+            margin-bottom: 0.3rem; /* Smaller margin */
+            font-weight: 500;
+            font-size: 0.85rem; /* Smaller label */
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            margin-bottom: 0.1rem;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            font-size: 0.8rem;
+            color: var(--gray);
+            display: inline-block; /* Keep it next to slider if space allows */
+            min-width: 30px; /* Ensure space for value */
+        }
+
+        /* Stats Styling */
+        #stats {
+             font-size: 0.9rem;
+             line-height: 1.5;
+        }
+        #stats p {
+            margin-bottom: 0.5rem;
+        }
+        #stats hr {
+            margin: 0.75rem 0;
+            border: none;
+            border-top: 1px solid #eee;
+        }
+        #stats h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+        .elevator-status-card {
+            margin: 0.5rem 0;
+            padding: 0.75rem;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .elevator-status-card strong {
+            color: var(--primary);
+        }
+
+
+        /* Graphs Styling */
+        .graphs-area {
+             display: grid;
+             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive grid for graphs */
+             gap: 1rem;
+        }
+
+        .graph-container {
+            height: 250px; /* Default height */
+            padding: 1rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            /* Let grid handle layout */
+        }
+        .graph-container canvas {
+             max-width: 100%;
+        }
+
+        /* Status Message */
+        .status-message {
             margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            display: none; /* Hidden by default */
         }
-        
-        .btn-danger {
-            background-color: var(--danger);
-            color: white;
+        .status-message.visible {
+            display: block;
         }
-        
-        .btn-danger:hover {
-            background-color: #e91e63;
-            transform: translateY(-1px);
+        .status-message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
         }
-        
-        /* Responsive adjustments */
-        @media (max-width: 576px) {
-            .container {
-                padding: 0.5rem;
-            }
-            
-            .header {
-                border-radius: 0;
-                margin: -0.5rem -0.5rem 1.5rem;
-            }
-            
-            .building {
-                height: 60vh;
-            }
-            
-            .floor-info {
-                width: 90px;
-                padding: 0.25rem 0.5rem;
-            }
-            
-            .stat-card {
-                padding: 1rem;
-            }
-            
-            .btn {
-                padding: 0.5rem 1rem;
-                font-size: 0.85rem;
-            }
+        .status-message.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
         }
-        
+
+
+        /* Modal Base Styles */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            padding: 1rem; /* Padding for small screens */
         }
-        
+
         .modal {
             background-color: white;
-            padding: 2rem;
+            padding: 1.5rem; /* Base padding */
             border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
+            width: 95%; /* Responsive width */
+            max-width: 500px; /* Max width */
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
         }
-        
+
         .modal h2 {
             margin-bottom: 1.5rem;
             color: var(--secondary);
+            font-size: 1.4rem; /* Adjust size */
         }
-        
+
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem; /* Smaller margin */
         }
-        
+
         .form-group label {
             display: block;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
             font-weight: 600;
             color: var(--dark);
+            font-size: 0.9rem;
         }
-        
-        .form-group input {
+
+        .form-group input[type="number"] { /* Specificity */
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.6rem; /* Adjust padding */
             border: 2px solid #e9ecef;
             border-radius: 8px;
             font-size: 1rem;
             transition: var(--transition);
         }
-        
-        .form-group input:focus {
+
+        .form-group input[type="number"]:focus {
             outline: none;
             border-color: var(--primary);
         }
-        
-        .btn-group {
+
+        .button-group { /* Used in modals */
             display: flex;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        
-        .config-button {
-            background-color: var(--secondary);
-            color: white;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .config-button:hover {
-            background-color: var(--primary);
-        }
-        
-        .status-message {
-            margin-top: 1rem;
-            padding: 0.75rem;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        .status-message.success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #a5d6a7;
-        }
-        
-        .status-message.error {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ef9a9a;
-        }
-        
-        .graph-container {
-            height: 300px;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-        
-        .button-container {
-            display: flex;
-            gap: 0.75rem;
-            margin: 1rem 0;
-            flex-wrap: wrap;
-        }
-        
-        .slider-container {
-            margin: 1rem 0;
-        }
-        
-        .slider-container label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-        
-        .slider-container input[type="range"] {
-            width: 100%;
-            margin-bottom: 0.25rem;
-        }
-        
-        .slider-value {
-            font-size: 0.9rem;
-            color: var(--gray);
-        }
-        
-        #modelFile {
-            margin: 1rem 0;
-            padding: 0.5rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            width: 100%;
+            gap: 0.75rem; /* Smaller gap */
+            margin-top: 1.5rem; /* Adjust top margin */
+            flex-wrap: wrap; /* Allow wrapping */
         }
 
-        /* Episode Summary Modal Styles */
+
+        /* Episode Summary Modal */
         .episode-summary {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            max-width: 600px;
-            width: 90%;
+             /* Inherits .modal styles via overlay, add specifics */
+             max-width: 600px;
         }
 
         .episode-summary h2 {
-            color: var(--secondary);
-            margin-bottom: 1.5rem;
             border-bottom: 2px solid var(--light);
             padding-bottom: 0.5rem;
         }
 
-        .stats-grid {
+        .episode-summary .stats-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
+             /* Responsive columns: 1 on small, 2 on larger */
+            grid-template-columns: 1fr; /* Default to 1 column */
+            gap: 0.75rem; /* Smaller gap */
         }
 
-        .stat-item {
+        .episode-summary .stat-item {
             background: var(--light);
-            padding: 1rem;
+            padding: 0.75rem; /* Smaller padding */
             border-radius: 8px;
             transition: var(--transition);
         }
 
-        .stat-item:hover {
+        .episode-summary .stat-item:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
-        .stat-label {
-            font-size: 0.9rem;
+        .episode-summary .stat-label {
+            font-size: 0.8rem; /* Smaller label */
             color: var(--gray);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.2rem;
         }
 
-        .stat-value {
-            font-size: 1.25rem;
+        .episode-summary .stat-value {
+            font-size: 1.1rem; /* Smaller value */
             font-weight: 600;
             color: var(--secondary);
         }
 
-        .highlight {
-            color: var(--primary);
-            font-weight: bold;
+        /* Pulse Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(247, 37, 133, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(247, 37, 133, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(247, 37, 133, 0); }
         }
+
+        /* --- Media Queries for Responsiveness --- */
+
+        /* Tablet and Larger Mobile */
+        @media (min-width: 577px) {
+             .episode-summary .stats-grid {
+                  grid-template-columns: repeat(2, 1fr); /* 2 columns */
+             }
+             .header {
+                 flex-direction: row; /* Title and button side-by-side */
+                 justify-content: space-between; /* Space them out */
+             }
+        }
+
+
+        /* Tablet */
+        @media (max-width: 992px) {
+             .dashboard {
+                  grid-template-columns: 1fr 1fr; /* 2 columns */
+                  grid-template-areas:
+                       "viz controls"
+                       "viz stats"
+                       "graphs graphs";
+             }
+             .floor { min-height: var(--floor-height-tablet); }
+             .elevator {
+                 width: var(--elevator-size-tablet);
+                 height: var(--elevator-size-tablet);
+                 font-size: 0.75rem;
+             }
+             .elevator-shaft { width: calc(var(--elevator-size-tablet) + 10px); }
+             .floor-info { width: 100px; }
+             .graph-container { height: 220px; }
+        }
+
+        /* Mobile */
+        @media (max-width: 576px) {
+            body { font-size: 14px; } /* Smaller base font on mobile */
+            .container { padding: 0.5rem; }
+            .header {
+                 padding: 0.75rem 1rem;
+                 border-radius: 0; /* Full width */
+                 margin: -0.5rem -0.5rem 1rem -0.5rem; /* Extend to edges */
+                 flex-direction: column; /* Stack vertically again */
+                 gap: 0.5rem;
+            }
+            .header h1 { font-size: 1.4rem; }
+            .dashboard {
+                grid-template-columns: 1fr; /* Single column */
+                grid-template-areas: /* Define single column layout */
+                    "viz"
+                    "controls"
+                    "stats"
+                    "graphs";
+                gap: 1rem; /* Smaller gap */
+            }
+            .card { padding: 1rem; }
+            .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem;}
+
+            .floor { min-height: var(--floor-height-mobile); }
+             .elevator {
+                 width: var(--elevator-size-mobile);
+                 height: var(--elevator-size-mobile);
+                 font-size: 0.65rem; /* Even smaller font */
+                 border-radius: 6px;
+                 gap: 1px;
+             }
+             .elevator-shaft { width: calc(var(--elevator-size-mobile) + 8px); } /* Adjust shaft */
+             .elevator .direction { font-size: 1em; }
+             .elevator .passenger-count { font-size: 0.8em; padding: 1px 4px; }
+
+            .floor-info {
+                width: 80px; /* Smaller info box */
+                padding: 0.25rem 0.4rem;
+                font-size: 0.75rem;
+            }
+            .floor-button { width: 28px; height: 28px; font-size: 0.9rem;}
+
+            .btn { padding: 0.5rem 1rem; font-size: 0.8rem; }
+            .button-container { gap: 0.5rem; }
+
+            #modelFile { font-size: 0.8rem; }
+            .slider-container label { font-size: 0.8rem; }
+            .slider-value { font-size: 0.75rem; }
+
+            #stats { font-size: 0.85rem; }
+            #stats h3 { font-size: 0.95rem; }
+            .elevator-status-card { padding: 0.6rem; font-size: 0.75rem;}
+
+            .graphs-area { gap: 0.75rem; }
+            .graph-container { height: 200px; padding: 0.75rem; }
+
+            .modal { padding: 1rem; }
+            .modal h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+            .form-group label { font-size: 0.85rem; }
+            .form-group input[type="number"] { font-size: 0.9rem; padding: 0.5rem; }
+            .button-group { gap: 0.5rem; margin-top: 1rem; }
+
+             .episode-summary .stat-label { font-size: 0.75rem; }
+             .episode-summary .stat-value { font-size: 1rem; }
+        }
+
     </style>
 </head>
 <body>
     <!-- Welcome Modal -->
     <div id="welcomeModal" class="modal-overlay">
         <div class="modal">
-            <div class="modal-content">
             <h2>Welcome to Multi-Elevator Simulator</h2>
-                <p>Please configure your elevator system:</p>
+            <p>Please configure your elevator system:</p>
             <div class="form-group">
                 <label for="numElevators">Number of Elevators (1-10):</label>
                 <input type="number" id="numElevators" min="1" max="10" value="3">
@@ -538,19 +664,19 @@
                 <label for="numFloors">Number of Floors (2-20):</label>
                 <input type="number" id="numFloors" min="2" max="20" value="10">
             </div>
-                <div class="button-group">
-                    <button class="btn btn-primary" onclick="updateConfiguration()">Update Configuration</button>
-                    <button id="overrideButton" class="btn btn-danger" style="display: none;" onclick="updateConfiguration(true)">
-                        Override Configuration
-                    </button>
-                </div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="updateConfiguration()">Update & Start</button>
+                <button id="overrideButton" class="btn btn-danger" style="display: none;" onclick="updateConfiguration(true)">
+                    Override & Start
+                </button>
             </div>
+             <div id="configStatusMessage" class="status-message" style="margin-top: 1rem;"></div>
         </div>
     </div>
 
     <!-- Episode Summary Modal -->
     <div id="episodeSummaryModal" class="modal-overlay" style="display: none;">
-        <div class="episode-summary">
+        <div class="modal episode-summary">
             <h2>Episode Summary</h2>
             <div class="stats-grid">
                 <div class="stat-item">
@@ -558,12 +684,16 @@
                     <div class="stat-value" id="totalReward">-</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">Average Reward per Step</div>
+                    <div class="stat-label">Avg Reward / Step</div>
                     <div class="stat-value" id="avgReward">-</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Passengers Served</div>
                     <div class="stat-value" id="passengersServed">-</div>
+                </div>
+                 <div class="stat-item">
+                    <div class="stat-label">Total Generated</div>
+                    <div class="stat-value" id="passengersGenerated">-</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Completion Rate</div>
@@ -572,6 +702,10 @@
                 <div class="stat-item">
                     <div class="stat-label">Average Wait Time</div>
                     <div class="stat-value" id="avgWaitTime">-</div>
+                </div>
+                 <div class="stat-item">
+                    <div class="stat-label">Min Wait Time</div>
+                    <div class="stat-value" id="minWaitTime">-</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Max Wait Time</div>
@@ -582,8 +716,12 @@
                     <div class="stat-value" id="totalSteps">-</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">Avg Passengers per Step</div>
+                    <div class="stat-label">Avg Passengers / Step</div>
                     <div class="stat-value" id="avgPassengersPerStep">-</div>
+                </div>
+                 <div class="stat-item">
+                    <div class="stat-label">Mode Used</div>
+                    <div class="stat-value" id="modeUsed">-</div>
                 </div>
             </div>
             <div class="button-group" style="margin-top: 1.5rem;">
@@ -596,70 +734,84 @@
     <!-- Main Content -->
     <div class="container">
         <div class="header">
-            <h1>Multi-Elevator Simulator</h1>
-            <button class="config-button" onclick="showConfigModal()">Change Configuration</button>
+            <h1>Multi-Elevator Sim</h1> <!-- Shorter title -->
+            <button class="config-button" onclick="showConfigModal()">Change Config</button>
         </div>
-        
+
         <div class="dashboard">
-            <div class="card">
-                <h2>Elevator System Visualization</h2>
-                <div class="building">
-                    <div class="floors">
-                        <!-- Floors will be dynamically added here -->
+            <!-- Visualization Area -->
+            <div class="card viz-area">
+                <h2>Elevator System</h2>
+                 <div class="building-container">
+                    <div class="building">
+                        <div class="floors">
+                            <!-- Floors will be dynamically added here -->
+                        </div>
+                        <!-- Elevator Shafts added by JS -->
                     </div>
-                </div>
-                
-                <div class="controls">
-                    <h3>Simulation Controls</h3>
-                    <div class="control-panel">
-                        <input type="file" id="modelFile" accept=".zip" />
-                        <div class="button-container">
-                            <button class="btn btn-primary" onclick="loadModel()">Load Model</button>
-                            <button class="btn btn-primary" onclick="startSimulation()">Start Simulation</button>
-                            <button class="btn btn-primary" onclick="resetSimulation()">Reset Simulation</button>
-                            <button class="btn btn-primary" id="pauseButton" onclick="togglePause()" disabled>Pause</button>
-                        </div>
-                        
-                        <div class="slider-container">
-                            <label for="passengerRate">Passenger Arrival Rate:</label>
-                            <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
-                            <span class="slider-value" id="rateValue">0.1</span>
-                        </div>
-                        
-                        <div class="slider-container">
-                            <label for="simulationSpeed">Simulation Speed (seconds per step):</label>
-                            <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
-                            <span class="slider-value" id="speedValue">1.0</span>
-                        </div>
-                        
-                        <div class="slider-container">
-                            <label for="maxSteps">Maximum Steps:</label>
-                            <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
-                            <span class="slider-value" id="maxStepsValue">1000</span>
-                        </div>
-                        
-                        <div id="statusMessage" class="status-message"></div>
-                    </div>
-                </div>
+                 </div>
             </div>
-            
-            <div class="card stats">
+
+            <!-- Controls Area -->
+            <div class="card controls-area">
+                 <h2>Controls</h2>
+                 <div class="control-panel">
+                    <div class="control-group">
+                        <label for="modelFile" class="control-label">Load Trained Model (Optional):</label>
+                        <input type="file" id="modelFile" accept=".zip" onchange="handleFileSelect(this)"/>
+                        <button class="btn btn-secondary" id="loadModelBtn" onclick="loadModel()" disabled>Load Model</button>
+                        <span id="loadedModelInfo" style="font-size: 0.8rem; color: var(--gray); margin-left: 5px;"></span>
+                    </div>
+
+                    <div class="control-group button-container">
+                        <button class="btn btn-primary" id="startBtn" onclick="startSimulation()" disabled>Start</button>
+                        <button class="btn btn-danger" id="stopBtn" onclick="stopSimulation()" disabled>Stop</button>
+                         <button class="btn btn-warning" id="pauseButton" onclick="togglePause()" disabled>Pause</button>
+                        <button class="btn btn-secondary" id="resetBtn" onclick="resetSimulation()">Reset Sim</button>
+                    </div>
+
+                    <div class="control-group slider-container">
+                        <label for="passengerRate" class="control-label">Passenger Rate:</label>
+                        <input type="range" id="passengerRate" min="0" max="1" step="0.05" value="0.1">
+                        <span class="slider-value" id="rateValue">0.1</span>
+                    </div>
+
+                    <div class="control-group slider-container">
+                        <label for="simulationSpeed" class="control-label">Sim Speed (sec/step):</label>
+                        <input type="range" id="simulationSpeed" min="0.1" max="2" step="0.1" value="1.0">
+                        <span class="slider-value" id="speedValue">1.0</span>
+                    </div>
+
+                    <div class="control-group slider-container">
+                        <label for="maxSteps" class="control-label">Max Steps:</label>
+                        <input type="range" id="maxSteps" min="100" max="5000" step="100" value="1000">
+                        <span class="slider-value" id="maxStepsValue">1000</span>
+                    </div>
+
+                    <div id="statusMessage" class="status-message"></div>
+                 </div>
+            </div>
+
+            <!-- Stats Area -->
+            <div class="card stats-area">
                 <h2>System Stats</h2>
-                <div id="stats"></div>
-            </div>
-            
-            <div class="card graphs">
-                <h2>Performance Metrics</h2>
-                <div class="graph-container">
-                    <canvas id="passengersChart"></canvas>
-                </div>
-                <div class="graph-container">
-                    <canvas id="rewardChart"></canvas>
-                </div>
-                <div class="graph-container">
-                    <canvas id="waitTimeChart"></canvas>
+                <div id="stats">
+                    <p>Waiting for simulation data...</p>
                 </div>
             </div>
+
+            <!-- Graphs Area -->
+             <div class="graphs-area">
+                 <div class="graph-container">
+                     <canvas id="passengersChart"></canvas>
+                 </div>
+                 <div class="graph-container">
+                     <canvas id="rewardChart"></canvas>
+                 </div>
+                 <div class="graph-container">
+                     <canvas id="waitTimeChart"></canvas>
+                 </div>
+             </div>
         </div>
     </div>
 
@@ -671,371 +823,119 @@
             reward: null,
             waitTime: null
         };
+        let simulationRunning = false;
+        let simulationPaused = false;
+        let modelLoaded = false;
 
-        // Initialize data arrays for charts
+        // Chart data
         const maxDataPoints = 100;
         const chartData = {
-            passengers: [],
-            waiting: [],
-            rewards: [],
-            waitTimes: [],
-            timestamps: []
+            passengers: [], waiting: [], rewards: [], waitTimes: [], timestamps: []
         };
 
-        // Set up passenger rate slider
-        const rateSlider = document.getElementById('passengerRate');
-        const rateValue = document.getElementById('rateValue');
-        let lastUpdateTime = 0;
+        // Elements cache
+        const elements = {
+            numElevatorsInput: document.getElementById('numElevators'),
+            numFloorsInput: document.getElementById('numFloors'),
+            rateSlider: document.getElementById('passengerRate'),
+            rateValue: document.getElementById('rateValue'),
+            speedSlider: document.getElementById('simulationSpeed'),
+            speedValue: document.getElementById('speedValue'),
+            maxStepsSlider: document.getElementById('maxSteps'),
+            maxStepsValue: document.getElementById('maxStepsValue'),
+            statusMessage: document.getElementById('statusMessage'),
+            configStatusMessage: document.getElementById('configStatusMessage'),
+            modelFileInput: document.getElementById('modelFile'),
+            loadModelBtn: document.getElementById('loadModelBtn'),
+            loadedModelInfo: document.getElementById('loadedModelInfo'),
+            startBtn: document.getElementById('startBtn'),
+            stopBtn: document.getElementById('stopBtn'),
+            pauseButton: document.getElementById('pauseButton'),
+            resetBtn: document.getElementById('resetBtn'),
+            statsDiv: document.getElementById('stats'),
+            buildingDiv: document.querySelector('.building'),
+            floorsDiv: document.querySelector('.floors'),
+            welcomeModal: document.getElementById('welcomeModal'),
+            episodeSummaryModal: document.getElementById('episodeSummaryModal'),
+            overrideButton: document.getElementById('overrideButton') // Added override button reference
+        };
 
-        // Set up simulation speed slider
-        const speedSlider = document.getElementById('simulationSpeed');
-        const speedValue = document.getElementById('speedValue');
-        let lastSpeedUpdateTime = 0;
-
-        // Set up max steps slider
-        const maxStepsSlider = document.getElementById('maxSteps');
-        const maxStepsValue = document.getElementById('maxStepsValue');
-        let lastMaxStepsUpdateTime = 0;
-
-        rateSlider.addEventListener('input', function() {
-            rateValue.textContent = this.value;
-            
-            // Throttle updates to prevent too many requests
-            const now = Date.now();
-            if (now - lastUpdateTime > 100) { // Update at most every 100ms
-                updatePassengerRate(this.value);
-                lastUpdateTime = now;
-            }
+        // --- Event Listeners ---
+        elements.rateSlider.addEventListener('input', function() {
+            elements.rateValue.textContent = this.value;
+            throttledUpdate(updatePassengerRate, this.value);
+        });
+        elements.speedSlider.addEventListener('input', function() {
+            elements.speedValue.textContent = this.value;
+            throttledUpdate(updateSimulationSpeed, this.value);
+        });
+        elements.maxStepsSlider.addEventListener('input', function() {
+            elements.maxStepsValue.textContent = this.value;
+            throttledUpdate(updateMaxSteps, this.value);
         });
 
-        speedSlider.addEventListener('input', function() {
-            speedValue.textContent = this.value;
-            
-            // Throttle updates
-            const now = Date.now();
-            if (now - lastSpeedUpdateTime > 100) {
-                updateSimulationSpeed(this.value);
-                lastSpeedUpdateTime = now;
+        // Throttling function
+        let throttleTimer = {};
+        function throttledUpdate(func, value) {
+            const funcName = func.name;
+            if (throttleTimer[funcName]) {
+                clearTimeout(throttleTimer[funcName]);
             }
+            throttleTimer[funcName] = setTimeout(() => {
+                func(value);
+                throttleTimer[funcName] = null;
+            }, 150); // 150ms throttle
+        }
+
+        // --- SocketIO Handlers ---
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            showStatus('Connected to server', false, elements.statusMessage);
+            // Re-enable config inputs if needed after reconnect?
         });
 
-        maxStepsSlider.addEventListener('input', function() {
-            maxStepsValue.textContent = this.value;
-            
-            // Throttle updates
-            const now = Date.now();
-            if (now - lastMaxStepsUpdateTime > 100) {
-                updateMaxSteps(this.value);
-                lastMaxStepsUpdateTime = now;
-            }
+        socket.on('disconnect', () => {
+             console.log('Disconnected from server');
+             showStatus('Disconnected. Attempting to reconnect...', true, elements.statusMessage);
+             setSimulationState(false); // Mark simulation as stopped on disconnect
         });
-
-        async function updatePassengerRate(rate) {
-            try {
-                const response = await fetch('/update_passenger_rate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ rate: rate })
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus(`Passenger rate updated to ${result.new_rate}`);
-                } else {
-                    showStatus(result.message, true);
-                }
-            } catch (error) {
-                showStatus('Error updating passenger rate: ' + error, true);
-            }
-        }
-
-        async function updateSimulationSpeed(speed) {
-            try {
-                const response = await fetch('/update_simulation_speed', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ speed: speed })
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus(`Simulation speed updated to ${result.new_speed} seconds per step`);
-                } else {
-                    showStatus(result.message, true);
-                }
-            } catch (error) {
-                showStatus('Error updating simulation speed: ' + error, true);
-            }
-        }
-
-        async function updateMaxSteps(steps) {
-            try {
-                const response = await fetch('/update_max_steps', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ max_steps: steps })
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus(`Maximum steps updated to ${result.new_max_steps}`);
-                } else {
-                    showStatus(result.message, true);
-                }
-            } catch (error) {
-                showStatus('Error updating maximum steps: ' + error, true);
-            }
-        }
-
-        function showStatus(message, isError = false) {
-            const statusDiv = document.getElementById('statusMessage');
-            statusDiv.className = 'status-message ' + (isError ? 'error' : 'success');
-            statusDiv.textContent = message;
-        }
-
-        async function loadModel() {
-            const fileInput = document.getElementById('modelFile');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                showStatus('Please select a model file first', true);
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('model_file', file);
-
-            try {
-                const response = await fetch('/load_model', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus(result.message);
-                    
-                    // Update configuration inputs to match model's required configuration
-                    document.getElementById('numFloors').value = result.num_floors;
-                    document.getElementById('numElevators').value = result.num_elevators;
-                    
-                    // Update visualization with new configuration
-                    initializeVisualization(result.num_floors, result.num_elevators);
-                    
-                    // Disable configuration inputs while model is loaded
-                    document.getElementById('numFloors').disabled = true;
-                    document.getElementById('numElevators').disabled = true;
-                    
-                    // Update the override button visibility
-                    document.getElementById('overrideButton').style.display = 'none';
-                    
-                    // Reset any active simulation
-                    document.getElementById('pauseButton').disabled = true;
-                    document.getElementById('pauseButton').textContent = 'Pause';
-                } else {
-                    showStatus(result.message, true);
-                }
-            } catch (error) {
-                showStatus('Error loading model: ' + error, true);
-            }
-        }
-
-        async function startSimulation() {
-            console.log('Starting simulation...');
-            try {
-                // Store current values
-                const currentRate = parseFloat(rateSlider.value);
-                const currentSpeed = parseFloat(speedSlider.value);
-                const currentMaxSteps = parseInt(maxStepsSlider.value);
-
-                if (await updateConfiguration()) {
-                    console.log('Configuration updated, starting simulation...');
-                    const response = await fetch('/start_simulation', {
-                        method: 'POST'
-                    });
-                    const data = await response.json();
-                    
-                    console.log('Simulation start response:', data);
-                    if (data.status === 'success') {
-                        // Restore the values
-                        await updatePassengerRate(currentRate);
-                        await updateSimulationSpeed(currentSpeed);
-                        await updateMaxSteps(currentMaxSteps);
-
-                        console.log('Simulation started successfully');
-                        showStatus('Simulation started successfully');
-                        document.getElementById('pauseButton').disabled = false;  // Enable pause button
-                        document.getElementById('pauseButton').textContent = 'Pause';  // Reset text
-                    } else {
-                        const error = 'Failed to start simulation';
-                        console.error(error);
-                        showStatus(error, true);
-                    }
-                } else {
-                    console.log('Configuration update failed, simulation not started');
-                }
-            } catch (error) {
-                const errorMsg = `Error starting simulation: ${error.message}`;
-                console.error(errorMsg);
-                console.error('Full error:', error);
-                showStatus(errorMsg, true);
-            }
-        }
-
-        async function stopSimulation() {
-            try {
-                const response = await fetch('/stop_simulation', {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus('Simulation stopped');
-                    
-                    // Only re-enable configuration inputs if no model is loaded
-                    const modelFile = document.getElementById('modelFile');
-                    if (!modelFile.files || modelFile.files.length === 0) {
-                        document.getElementById('numFloors').disabled = false;
-                        document.getElementById('numElevators').disabled = false;
-                    }
-                    
-                    // Disable and reset pause button
-                    document.getElementById('pauseButton').disabled = true;
-                    document.getElementById('pauseButton').textContent = 'Pause';
-                } else {
-                    showStatus('Error stopping simulation', true);
-                }
-            } catch (error) {
-                showStatus('Error stopping simulation: ' + error, true);
-            }
-        }
-
-        async function togglePause() {
-            try {
-                const pauseButton = document.getElementById('pauseButton');
-                const isPausing = pauseButton.textContent === 'Pause';
-                
-                const response = await fetch('/pause_simulation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ pause: isPausing })
-                });
-                
-                const result = await response.json();
-                if (result.status === 'success') {
-                    pauseButton.textContent = isPausing ? 'Resume' : 'Pause';
-                    showStatus(isPausing ? 'Simulation paused' : 'Simulation resumed');
-                } else {
-                    showStatus('Failed to ' + (isPausing ? 'pause' : 'resume') + ' simulation', true);
-                }
-            } catch (error) {
-                showStatus('Error toggling pause: ' + error, true);
-            }
-        }
-
-        async function resetSimulation() {
-            try {
-                // First stop the simulation
-                await stopSimulation();
-                
-                const response = await fetch('/reset_simulation', {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    showStatus('Simulation reset successfully');
-                    
-                    // Reset all charts
-                    chartData.timestamps = [];
-                    chartData.passengers = [];
-                    chartData.waiting = [];
-                    chartData.rewards = [];
-                    chartData.waitTimes = [];
-                    
-                    charts.passengers.data.labels = [];
-                    charts.passengers.data.datasets[0].data = [];
-                    charts.passengers.data.datasets[1].data = [];
-                    charts.passengers.update('none');
-                    
-                    charts.reward.data.labels = [];
-                    charts.reward.data.datasets[0].data = [];
-                    charts.reward.update('none');
-                    
-                    charts.waitTime.data.labels = [];
-                    charts.waitTime.data.datasets[0].data = [];
-                    charts.waitTime.update('none');
-                    
-                    // Reset the visualization
-                    const numFloors = parseInt(document.getElementById('numFloors').value);
-                    const numElevators = parseInt(document.getElementById('numElevators').value);
-                    initializeVisualization(numFloors, numElevators);
-                    
-                    // Re-enable configuration inputs if no model is loaded
-                    const modelFile = document.getElementById('modelFile');
-                    if (!modelFile.files || modelFile.files.length === 0) {
-                        document.getElementById('numFloors').disabled = false;
-                        document.getElementById('numElevators').disabled = false;
-                    }
-                } else {
-                    showStatus('Failed to reset simulation: ' + result.message, true);
-                }
-            } catch (error) {
-                showStatus('Error resetting simulation: ' + error.message, true);
-            }
-        }
-
-        async function requestElevator(floorNumber) {
-            console.log(`Requesting elevator at floor ${floorNumber}`);
-            try {
-                const response = await fetch('/request_elevator', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ floor: floorNumber })
-                });
-                
-                const result = await response.json();
-                if (result.status === 'success') {
-                    const button = document.querySelector(`.floor:nth-child(${floorNumber + 1}) .floor-button`);
-                    if (button) {
-                        button.classList.add('active');
-                    }
-                    showStatus(`Elevator requested at floor ${floorNumber}`);
-                } else {
-                    showStatus(`Failed to request elevator: ${result.message}`, true);
-                }
-            } catch (error) {
-                console.error('Error requesting elevator:', error);
-                showStatus(`Error requesting elevator: ${error.message}`, true);
-            }
-        }
 
         socket.on('stats_update', (data) => {
+             if (!simulationRunning || simulationPaused) return; // Don't update if paused or stopped
+
+             updateVisualization(data);
+             updateStatsDisplay(data);
+             updateCharts(data);
+        });
+
+        socket.on('episode_summary', (data) => {
+            console.log("Episode Summary Received:", data);
+            setSimulationState(false); // Simulation ended
+            showEpisodeSummary(data);
+        });
+
+
+        // --- UI Update Functions ---
+
+        function updateVisualization(data) {
+            // Get current floor height dynamically - CRITICAL for responsiveness
+            const floorElement = elements.floorsDiv.querySelector('.floor');
+            const floorHeight = floorElement ? floorElement.offsetHeight : 60; // Use offsetHeight, provide fallback
+
             // Update elevator positions
             data.elevator_positions.forEach((position, index) => {
                 const elevator = document.getElementById(`elevator-${index}`);
                 if (elevator) {
-                    const floorHeight = 80; // Match the floor height from CSS
+                    // Calculate bottom offset based on floor index and height
+                    // The visual "bottom" of the elevator should align with the bottom of the floor's container
                     const bottomPosition = position * floorHeight;
-                    elevator.style.transform = `translateY(${-(bottomPosition)}px)`;
-                    
+                    elevator.style.transform = `translateY(-${bottomPosition}px)`;
+
                     // Update passenger count
                     const passengerCount = data.elevator_passengers[index];
                     const passengerCountElement = elevator.querySelector('.passenger-count');
-                    if (passengerCountElement) {
-                        passengerCountElement.textContent = passengerCount;
-                    }
-                    
+                    if (passengerCountElement) passengerCountElement.textContent = passengerCount;
+
                     // Update direction indicator
                     const directionIndicator = elevator.querySelector('.direction');
                     if (directionIndicator) {
@@ -1044,81 +944,77 @@
                     }
                 }
             });
-            
-            // Update waiting passengers
-            data.waiting_passengers.forEach((count, floor) => {
-                const waitingCount = document.getElementById(`waiting-${floor}`);
-                if (waitingCount) {
-                    waitingCount.textContent = `Waiting: ${count}`;
-                }
-                
-                // Update floor button state
-                const button = document.querySelector(`.floor:nth-child(${floor + 1}) .floor-button`);
-                if (button) {
-                    button.classList.toggle('active', count > 0);
-                }
-            });
-            
-            updateStats(data);
-            updateCharts(data);
-        });
 
-        function updateStats(data) {
-            const statsDiv = document.getElementById('stats');
+            // Update waiting passengers and floor buttons
+            const numFloors = elements.floorsDiv.children.length;
+            for (let floor = 0; floor < numFloors; floor++) {
+                 const waitingCountElement = document.getElementById(`waiting-${floor}`);
+                 const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floor}"] .floor-button`); // Use data attribute
+                 const count = data.waiting_passengers[floor] || 0; // Handle potential index out of bounds if config changed mid-flight
+
+                 if (waitingCountElement) {
+                     waitingCountElement.textContent = `Waiting: ${count}`;
+                 }
+                 if (button) {
+                     button.classList.toggle('active', count > 0);
+                 }
+            }
+        }
+
+
+        function updateStatsDisplay(data) {
             const totalPassengersInElevators = data.elevator_passengers.reduce((a, b) => a + b, 0);
             const totalWaitingPassengers = data.waiting_passengers.reduce((a, b) => a + b, 0);
-            
-            statsDiv.innerHTML = `
-                <p><strong>Current Step:</strong> ${data.current_step + 1} / ${data.max_steps}</p>
-                <p><strong>Current Reward:</strong> ${data.reward.toFixed(2)}</p>
-                <p><strong>Total System Passengers:</strong> ${totalPassengersInElevators + totalWaitingPassengers}</p>
-                <p><strong>Waiting Passengers:</strong> ${totalWaitingPassengers}</p>
-                <p><strong>Passenger Rate:</strong> ${(data.passenger_rate * 100).toFixed(1)}%</p>
-                <p><strong>Simulation Speed:</strong> ${data.simulation_speed.toFixed(1)} sec/step</p>
-                <p><strong>Mode:</strong> ${data.using_model ? 'Using trained model' : 'Random actions'}</p>
+
+            elements.statsDiv.innerHTML = `
+                <p><strong>Step:</strong> ${data.current_step + 1} / ${data.max_steps}</p>
+                <p><strong>Reward:</strong> ${data.reward.toFixed(2)}</p>
+                <p><strong style="color: ${data.using_model ? 'var(--success)' : 'var(--warning)'};">Mode:</strong> ${data.using_model ? 'Trained Model' : 'Random Actions'}</p>
+                <p><strong>Avg Wait Time (current):</strong> ${data.avg_wait_time.toFixed(1)} steps</p>
+                <p><strong>Passengers (Waiting):</strong> ${totalWaitingPassengers}</p>
+                <p><strong>Passengers (In Elevators):</strong> ${totalPassengersInElevators}</p>
+                <p><strong>Passenger Rate:</strong> ${(data.passenger_rate * 100).toFixed(0)}%</p>
+                <p><strong>Sim Speed:</strong> ${data.simulation_speed.toFixed(1)}s/step</p>
                 <hr>
                 <h3>Elevator Status:</h3>
                 ${data.elevator_positions.map((pos, i) => `
-                    <div style="margin: 10px 0; padding: 10px; background-color: ${data.elevator_passengers[i] > 0 ? '#e8f5e9' : '#fff'}; border: 1px solid #ccc; border-radius: 4px;">
-                        <strong>Elevator ${i + 1}:</strong><br>
-                        Floor: ${pos}<br>
-                        Direction: ${['Idle', 'Up', 'Down'][data.elevator_directions[i]]}<br>
-                        Passengers: ${data.elevator_passengers[i]} 🧍‍♂️
+                    <div class="elevator-status-card">
+                        <strong>Elevator ${i + 1}:</strong> Floor ${pos} |
+                        Dir: ${['Idle', 'Up', 'Down'][data.elevator_directions[i]]} |
+                        Passengers: ${data.elevator_passengers[i]}
                     </div>
                 `).join('')}
             `;
 
-            // Update sliders if they don't match current values
-            if (Math.abs(parseFloat(rateSlider.value) - data.passenger_rate) > 0.001) {
-                rateSlider.value = data.passenger_rate;
-                rateValue.textContent = data.passenger_rate;
-            }
-            if (Math.abs(parseFloat(speedSlider.value) - data.simulation_speed) > 0.001) {
-                speedSlider.value = data.simulation_speed;
-                speedValue.textContent = data.simulation_speed;
-            }
-            if (parseInt(maxStepsSlider.value) !== data.max_steps) {
-                maxStepsSlider.value = data.max_steps;
-                maxStepsValue.textContent = data.max_steps;
+            // Update sliders only if needed (avoiding jittery updates)
+            updateSliderIfNeeded(elements.rateSlider, elements.rateValue, data.passenger_rate);
+            updateSliderIfNeeded(elements.speedSlider, elements.speedValue, data.simulation_speed);
+            updateSliderIfNeeded(elements.maxStepsSlider, elements.maxStepsValue, data.max_steps);
+        }
+
+        function updateSliderIfNeeded(slider, valueDisplay, serverValue) {
+            const currentValue = slider.type === 'range' ? parseFloat(slider.value) : parseInt(slider.value);
+            const tolerance = slider.step ? parseFloat(slider.step) / 2 : 0.01;
+             if (Math.abs(currentValue - serverValue) > tolerance) {
+                slider.value = serverValue;
+                valueDisplay.textContent = serverValue.toFixed ? serverValue.toFixed(slider.step >= 1 ? 0 : (slider.step >= 0.1 ? 1 : 2)) : serverValue;
             }
         }
 
         function updateCharts(data) {
-            if (!charts.passengers) {
-                return; // Charts not initialized yet
-            }
+            if (!charts.passengers || !data) return; // Ensure charts & data exist
 
             const timestamp = new Date().toLocaleTimeString();
             const totalPassengers = data.elevator_passengers.reduce((a, b) => a + b, 0);
             const totalWaiting = data.waiting_passengers.reduce((a, b) => a + b, 0);
-            
-            // Update data arrays
+
+            // Add data
             chartData.timestamps.push(timestamp);
             chartData.passengers.push(totalPassengers);
             chartData.waiting.push(totalWaiting);
             chartData.rewards.push(data.reward);
-            chartData.waitTimes.push(data.avg_wait_time);
-            
+            chartData.waitTimes.push(data.avg_wait_time); // Use avg_wait_time from stats
+
             // Limit data points
             if (chartData.timestamps.length > maxDataPoints) {
                 chartData.timestamps.shift();
@@ -1127,315 +1023,498 @@
                 chartData.rewards.shift();
                 chartData.waitTimes.shift();
             }
-            
-            // Update charts
+
+            // Update charts without full animation for performance
             charts.passengers.data.labels = chartData.timestamps;
             charts.passengers.data.datasets[0].data = chartData.passengers;
             charts.passengers.data.datasets[1].data = chartData.waiting;
             charts.passengers.update('none');
-            
+
             charts.reward.data.labels = chartData.timestamps;
             charts.reward.data.datasets[0].data = chartData.rewards;
             charts.reward.update('none');
-            
+
             charts.waitTime.data.labels = chartData.timestamps;
             charts.waitTime.data.datasets[0].data = chartData.waitTimes;
             charts.waitTime.update('none');
         }
 
-        socket.on('connect', () => {
-            console.log('Connected to server');
-            showStatus('Connected to server');
-        });
+        function resetCharts() {
+             chartData.timestamps = [];
+             chartData.passengers = [];
+             chartData.waiting = [];
+             chartData.rewards = [];
+             chartData.waitTimes = [];
 
-        // Add these new functions
+             if(charts.passengers) {
+                charts.passengers.data.labels = [];
+                charts.passengers.data.datasets.forEach(dataset => dataset.data = []);
+                charts.passengers.update('none');
+             }
+            if(charts.reward) {
+                charts.reward.data.labels = [];
+                charts.reward.data.datasets[0].data = [];
+                charts.reward.update('none');
+            }
+             if(charts.waitTime) {
+                charts.waitTime.data.labels = [];
+                charts.waitTime.data.datasets[0].data = [];
+                charts.waitTime.update('none');
+             }
+        }
+
+        function showStatus(message, isError = false, element = elements.statusMessage) {
+            if (!element) return;
+            element.className = 'status-message ' + (isError ? 'error' : 'success') + ' visible';
+            element.textContent = message;
+            // Optional: Hide after a few seconds if it's not an error
+            if (!isError) {
+                setTimeout(() => {
+                     if (element.textContent === message) { // Hide only if message hasn't changed
+                         element.classList.remove('visible');
+                     }
+                }, 4000);
+            }
+        }
+
+         function handleFileSelect(input) {
+             elements.loadModelBtn.disabled = !input.files || input.files.length === 0;
+         }
+
+        function setSimulationState(isRunning, isPaused = false) {
+            simulationRunning = isRunning;
+            simulationPaused = isPaused;
+
+            elements.startBtn.disabled = isRunning;
+            elements.stopBtn.disabled = !isRunning;
+            elements.pauseButton.disabled = !isRunning;
+            elements.resetBtn.disabled = isRunning;
+
+            // Disable config inputs/sliders during simulation
+            elements.numElevatorsInput.disabled = isRunning || modelLoaded;
+            elements.numFloorsInput.disabled = isRunning || modelLoaded;
+            elements.loadModelBtn.disabled = isRunning || !elements.modelFileInput.files || elements.modelFileInput.files.length === 0;
+            elements.modelFileInput.disabled = isRunning;
+             // Keep sliders enabled to allow real-time changes
+            // elements.rateSlider.disabled = isRunning;
+            // elements.speedSlider.disabled = isRunning;
+            // elements.maxStepsSlider.disabled = isRunning;
+
+            if (isRunning) {
+                elements.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
+            } else {
+                elements.pauseButton.textContent = 'Pause';
+                elements.pauseButton.disabled = true; // Disable pause when stopped
+                simulationPaused = false; // Ensure paused state is reset when stopped
+            }
+        }
+
+
+        // --- API Call Functions ---
+        async function fetchApi(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    // Try to parse error message from server response
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.message || errorMsg;
+                         if (errorData.expected_configuration) {
+                              // Specific handling for configuration mismatch error
+                              elements.overrideButton.style.display = 'inline-flex'; // Show override button
+                              errorMsg += ` Expected ${errorData.expected_configuration.num_floors} floors, ${errorData.expected_configuration.num_elevators} elevators. Click Override to force.`;
+                         } else {
+                              elements.overrideButton.style.display = 'none'; // Hide override button otherwise
+                         }
+
+                    } catch (e) { /* Ignore if response is not JSON */ }
+                    throw new Error(errorMsg);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                throw error; // Re-throw to be caught by caller
+            }
+        }
+
+        async function updatePassengerRate(rate) {
+            try {
+                const result = await fetchApi('/update_passenger_rate', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ rate: parseFloat(rate) })
+                });
+                showStatus(`Passenger rate updated to ${result.new_rate.toFixed(2)}`);
+            } catch (error) {
+                showStatus(`Error updating rate: ${error.message}`, true);
+            }
+        }
+
+        async function updateSimulationSpeed(speed) {
+            try {
+                const result = await fetchApi('/update_simulation_speed', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ speed: parseFloat(speed) })
+                });
+                showStatus(`Simulation speed updated to ${result.new_speed.toFixed(1)} s/step`);
+            } catch (error) {
+                showStatus(`Error updating speed: ${error.message}`, true);
+            }
+        }
+
+        async function updateMaxSteps(steps) {
+            try {
+                const result = await fetchApi('/update_max_steps', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ max_steps: parseInt(steps) })
+                });
+                showStatus(`Max steps updated to ${result.new_max_steps}`);
+            } catch (error) {
+                showStatus(`Error updating max steps: ${error.message}`, true);
+            }
+        }
+
+        async function loadModel() {
+            const file = elements.modelFileInput.files[0];
+            if (!file) {
+                showStatus('Please select a model file first', true);
+                return;
+            }
+            elements.loadModelBtn.disabled = true; // Disable while loading
+            elements.loadedModelInfo.textContent = 'Loading...';
+
+            const formData = new FormData();
+            formData.append('model_file', file);
+
+            try {
+                const result = await fetchApi('/load_model', { method: 'POST', body: formData });
+                showStatus(result.message);
+                modelLoaded = true;
+                // Update config inputs to reflect model requirements and disable them
+                elements.numFloorsInput.value = result.num_floors;
+                elements.numElevatorsInput.value = result.num_elevators;
+                elements.numFloorsInput.disabled = true;
+                elements.numElevatorsInput.disabled = true;
+                elements.loadedModelInfo.textContent = `Loaded (${result.num_floors}F/${result.num_elevators}E)`;
+                // Re-initialize visualization for the new configuration
+                initializeVisualization(result.num_floors, result.num_elevators);
+                // Reset simulation state and charts
+                resetCharts();
+                setSimulationState(false);
+                elements.startBtn.disabled = false; // Enable start button after successful load
+            } catch (error) {
+                showStatus(`Error loading model: ${error.message}`, true);
+                 elements.loadedModelInfo.textContent = '';
+                 modelLoaded = false;
+                 elements.numFloorsInput.disabled = false; // Re-enable config
+                 elements.numElevatorsInput.disabled = false;
+                 elements.loadModelBtn.disabled = false; // Re-enable button on failure
+            }
+        }
+
+        async function startSimulation() {
+            console.log('Attempting to start simulation...');
+            elements.startBtn.disabled = true; // Disable button immediately
+
+             // Ensure latest slider values are sent before starting
+             await Promise.all([
+                 updatePassengerRate(elements.rateSlider.value),
+                 updateSimulationSpeed(elements.speedSlider.value),
+                 updateMaxSteps(elements.maxStepsSlider.value)
+             ]);
+
+            try {
+                // Configuration is assumed set (either initially or by model load)
+                const result = await fetchApi('/start_simulation', { method: 'POST' });
+                console.log('Simulation start response:', result);
+                setSimulationState(true);
+                resetCharts(); // Clear charts for new simulation
+                showStatus('Simulation started');
+            } catch (error) {
+                showStatus(`Error starting simulation: ${error.message}`, true);
+                elements.startBtn.disabled = false; // Re-enable if start failed
+            }
+        }
+
+        async function stopSimulation() {
+            console.log('Stopping simulation...');
+            elements.stopBtn.disabled = true;
+            try {
+                const result = await fetchApi('/stop_simulation', { method: 'POST' });
+                setSimulationState(false);
+                showStatus('Simulation stopped');
+            } catch (error) {
+                showStatus(`Error stopping simulation: ${error.message}`, true);
+                // State might be inconsistent, but try to reflect stopped state
+                setSimulationState(false);
+            }
+        }
+
+        async function togglePause() {
+            const isPausing = !simulationPaused;
+            elements.pauseButton.disabled = true; // Disable while processing
+            try {
+                const result = await fetchApi('/pause_simulation', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pause: isPausing })
+                });
+                simulationPaused = result.paused;
+                elements.pauseButton.textContent = simulationPaused ? 'Resume' : 'Pause';
+                showStatus(simulationPaused ? 'Simulation paused' : 'Simulation resumed');
+            } catch (error) {
+                showStatus(`Error toggling pause: ${error.message}`, true);
+            } finally {
+                elements.pauseButton.disabled = !simulationRunning; // Re-enable only if running
+            }
+        }
+
+        async function resetSimulation() {
+             console.log('Resetting simulation...');
+             try {
+                 // Stop simulation first if running
+                 if (simulationRunning) {
+                     await stopSimulation();
+                 }
+                 // Call reset endpoint
+                 const result = await fetchApi('/reset_simulation', { method: 'POST' });
+                 showStatus('Simulation reset');
+
+                 // Reset state variables
+                 modelLoaded = false;
+                 setSimulationState(false);
+                 resetCharts();
+
+                 // Clear model info and re-enable file input/load button
+                 elements.modelFileInput.value = ''; // Clear selected file
+                 elements.loadModelBtn.disabled = true;
+                 elements.loadedModelInfo.textContent = '';
+                 elements.modelFileInput.disabled = false;
+
+                 // Show welcome modal again to potentially reconfigure
+                 showWelcomeModal();
+                 elements.startBtn.disabled = true; // Keep start disabled until config is confirmed
+
+             } catch (error) {
+                 showStatus(`Error resetting simulation: ${error.message}`, true);
+             }
+         }
+
+
+        async function requestElevator(floorNumber) {
+            console.log(`Requesting elevator at floor ${floorNumber}`);
+            try {
+                 // Find the button and add a temporary 'requesting' state?
+                 const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floorNumber}"] .floor-button`);
+                 if (button) button.disabled = true; // Prevent multi-clicks
+
+                const result = await fetchApi('/request_elevator', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ floor: floorNumber })
+                });
+                 // Status update comes via 'stats_update' event turning button active
+                 // showStatus(`Elevator requested at floor ${floorNumber}`);
+            } catch (error) {
+                showStatus(`Request error: ${error.message}`, true);
+            } finally {
+                 // Re-enable button after a short delay
+                 setTimeout(() => {
+                     const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floorNumber}"] .floor-button`);
+                     if (button) button.disabled = false;
+                 }, 500);
+            }
+        }
+
+         async function updateConfiguration(override = false) {
+             const numElevators = parseInt(elements.numElevatorsInput.value);
+             const numFloors = parseInt(elements.numFloorsInput.value);
+             elements.overrideButton.style.display = 'none'; // Hide override button initially
+
+             console.log(`Updating config - E: ${numElevators}, F: ${numFloors}, Override: ${override}`);
+             if (isNaN(numElevators) || numElevators < 1 || numElevators > 10 ||
+                 isNaN(numFloors) || numFloors < 2 || numFloors > 20) {
+                 showStatus('Invalid input: Elevators (1-10), Floors (2-20)', true, elements.configStatusMessage);
+                 return false;
+             }
+
+             try {
+                 const result = await fetchApi('/update_configuration', {
+                     method: 'POST',
+                     headers: {'Content-Type': 'application/json'},
+                     body: JSON.stringify({
+                         num_elevators: numElevators,
+                         num_floors: numFloors,
+                         override: override // Pass override flag
+                     })
+                 });
+                 console.log('Config update successful:', result);
+                 hideWelcomeModal();
+                 showStatus('Configuration updated. Ready to start.', false, elements.statusMessage);
+                 initializeVisualization(result.num_floors, result.num_elevators);
+                 resetCharts(); // Reset charts on config change
+                 setSimulationState(false); // Ensure simulation is marked as stopped
+                 elements.startBtn.disabled = false; // Enable start button
+                 return true;
+             } catch (error) {
+                 // Error message is shown by fetchApi, including override info if applicable
+                 showStatus(error.message, true, elements.configStatusMessage);
+                 return false;
+             }
+         }
+
+
+        // --- Modal & Initialization ---
         function showWelcomeModal() {
-            document.getElementById('welcomeModal').style.display = 'flex';
+            elements.welcomeModal.style.display = 'flex';
+            elements.configStatusMessage.textContent = ''; // Clear previous messages
+            elements.configStatusMessage.classList.remove('visible', 'error', 'success');
+            elements.overrideButton.style.display = 'none'; // Hide override initially
+
+            // Reset inputs to defaults or current known state
+             // elements.numElevatorsInput.value = 3; // Or get from server if possible?
+             // elements.numFloorsInput.value = 10;
+
+             // Enable/disable based on model state
+             elements.numElevatorsInput.disabled = modelLoaded;
+             elements.numFloorsInput.disabled = modelLoaded;
         }
-        
         function hideWelcomeModal() {
-            document.getElementById('welcomeModal').style.display = 'none';
+            elements.welcomeModal.style.display = 'none';
         }
-        
         function showConfigModal() {
-            // Stop current simulation
-            stopSimulation();
-            // Show welcome modal for reconfiguration
+            // If running, stop first (optional, could just prevent changes)
+            if (simulationRunning) {
+                stopSimulation(); // Consider if this is desired behavior
+            }
             showWelcomeModal();
         }
-        
-        async function updateConfiguration() {
-            const numElevators = parseInt(document.getElementById('numElevators').value);
-            const numFloors = parseInt(document.getElementById('numFloors').value);
-            
-            console.log(`Attempting to update configuration - Elevators: ${numElevators}, Floors: ${numFloors}`);
-            
-            if (isNaN(numElevators) || isNaN(numFloors)) {
-                const error = 'Invalid input: Please enter valid numbers for elevators and floors';
-                console.error(error);
-                alert(error);
-                return false;
-            }
-            
-            try {
-                console.log('Sending configuration update request...');
-                const response = await fetch('/update_configuration', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        num_elevators: numElevators,
-                        num_floors: numFloors
-                    })
-                });
-                
-                console.log('Received response from server');
-                const data = await response.json();
-                console.log('Response data:', data);
-                
-                if (data.status === 'success') {
-                    console.log('Configuration updated successfully');
-                    hideWelcomeModal();
-                    showStatus('Configuration updated successfully');
-                    // Clear and reinitialize the visualization
-                    initializeVisualization(numFloors, numElevators);
-                    return true;
-                } else {
-                    const errorMsg = data.message || 'Failed to update configuration';
-                    console.error('Configuration update failed:', errorMsg);
-                    alert(errorMsg);
-                    showStatus(errorMsg, true);
-                    return false;
-                }
-            } catch (error) {
-                const errorMsg = `Error updating configuration: ${error.message}`;
-                console.error(errorMsg);
-                console.error('Full error:', error);
-                alert(errorMsg);
-                showStatus(errorMsg, true);
-                return false;
-            }
+
+        function showEpisodeSummary(data) {
+            document.getElementById('totalReward').textContent = data.total_reward ?? '-';
+            document.getElementById('avgReward').textContent = data.avg_reward ?? '-';
+            document.getElementById('passengersServed').textContent = data.total_passengers_served ?? '-';
+            document.getElementById('passengersGenerated').textContent = data.total_passengers_generated ?? '-';
+            document.getElementById('completionRate').textContent = `${data.completion_rate ?? '-'}%`;
+            document.getElementById('avgWaitTime').textContent = `${data.avg_waiting_time ?? '-'} steps`;
+            document.getElementById('minWaitTime').textContent = `${data.min_waiting_time ?? '-'} steps`;
+            document.getElementById('maxWaitTime').textContent = `${data.max_waiting_time ?? '-'} steps`;
+            document.getElementById('totalSteps').textContent = data.total_steps ?? '-';
+            document.getElementById('avgPassengersPerStep').textContent = data.avg_passengers_per_step ?? '-';
+             document.getElementById('modeUsed').textContent = data.using_model ? 'Trained Model' : 'Random';
+
+            elements.episodeSummaryModal.style.display = 'flex';
         }
-        
+
+        function startNewEpisode() {
+            elements.episodeSummaryModal.style.display = 'none';
+            // Configuration is already set, just start simulation
+            startSimulation();
+        }
+
+
         function initializeVisualization(numFloors, numElevators) {
-            console.log(`Initializing visualization with ${numFloors} floors and ${numElevators} elevators`);
+            console.log(`Initializing visualization - F: ${numFloors}, E: ${numElevators}`);
             try {
-                const building = document.querySelector('.building');
-                const floors = document.querySelector('.floors');
-                
-                if (!building || !floors) {
-                    console.error('Could not find building or floors elements');
-                    return;
-                }
-                
                 // Clear existing content
-                floors.innerHTML = '';
-                console.log('Cleared existing floors');
-                
+                elements.floorsDiv.innerHTML = '';
+                const existingShafts = elements.buildingDiv.querySelectorAll('.elevator-shaft');
+                existingShafts.forEach(shaft => shaft.remove());
+
                 // Create floors
                 for (let i = 0; i < numFloors; i++) {
                     const floor = document.createElement('div');
                     floor.className = 'floor';
+                    floor.dataset.floorIndex = i; // Add index for easier selection
                     floor.innerHTML = `
                         <div class="floor-info">
                             <span class="floor-number">Floor ${i}</span>
                             <span class="waiting-count" id="waiting-${i}">Waiting: 0</span>
                         </div>
-                        <button class="floor-button" onclick="requestElevator(${i})">↑</button>
+                        <div class="floor-button-container">
+                            <button class="floor-button" onclick="requestElevator(${i})">▲</button> <!-- Use data-floor? -->
+                        </div>
                     `;
-                    floors.appendChild(floor);
+                    elements.floorsDiv.appendChild(floor);
                 }
-                console.log('Created new floors');
-                
-                // Set building height dynamically
-                const floorHeight = 80; // height per floor
-                building.style.height = `${numFloors * floorHeight}px`;
-                
-                // Remove existing elevator shafts
-                const existingShafts = document.querySelectorAll('.elevator-shaft');
-                existingShafts.forEach(shaft => shaft.remove());
-                console.log('Removed existing elevator shafts');
-                
-                // Calculate positions for elevator shafts
-                const shaftWidth = 80;
-                const shaftMargin = 10;
-                const totalWidth = (shaftWidth + shaftMargin * 2) * numElevators;
-                building.style.paddingRight = `${totalWidth}px`;
-                
+
+                // Create elevator shafts and elevators
+                const elevatorSizeDesktop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--elevator-size-desktop')); // Get from CSS Var
+                const shaftWidth = elevatorSizeDesktop + 10; // Approx width + margin
+                const totalShaftSpace = shaftWidth * numElevators;
+                elements.buildingDiv.style.paddingRight = `${totalShaftSpace + 10}px`; // Add padding for shafts + a little extra
+
                 for (let i = 0; i < numElevators; i++) {
                     const shaft = document.createElement('div');
                     shaft.className = 'elevator-shaft';
-                    shaft.style.right = `${i * (shaftWidth + shaftMargin * 2)}px`;
-                    
+                     // Position shafts from right to left
+                     shaft.style.right = `${i * shaftWidth + 5}px`; // Stagger shafts from the right edge
+
                     const elevator = document.createElement('div');
                     elevator.className = 'elevator';
                     elevator.id = `elevator-${i}`;
                     elevator.innerHTML = `
-                        <span>E${i + 1}</span>
+                        <span class="elevator-id">E${i + 1}</span>
                         <span class="direction">•</span>
-                        <span class="passenger-count" id="passengers-${i}">0</span>
+                        <span class="passenger-count">0</span>
                     `;
                     shaft.appendChild(elevator);
-                    building.appendChild(shaft);
+                    elements.buildingDiv.appendChild(shaft); // Append shaft to building
                 }
-                console.log('Created new elevator shafts');
-                
+
+                 // Adjust building height based on number of floors (optional, could rely on CSS min-height)
+                 // const floorElement = elements.floorsDiv.querySelector('.floor');
+                 // const floorHeight = floorElement ? floorElement.offsetHeight : 60;
+                 // elements.buildingDiv.style.minHeight = `${numFloors * floorHeight}px`; // Set min-height
+
+                console.log('Visualization initialized');
+
             } catch (error) {
                 console.error('Error initializing visualization:', error);
                 showStatus('Error initializing visualization: ' + error.message, true);
             }
         }
-        
-        // Initialize charts
+
         function initializeCharts() {
-            // Passengers Chart
-            const passengersCtx = document.getElementById('passengersChart').getContext('2d');
-            charts.passengers = new Chart(passengersCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: 'In Elevators',
-                            data: [],
-                            borderColor: 'rgb(67, 97, 238)',
-                            backgroundColor: 'rgba(67, 97, 238, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Waiting',
-                            data: [],
-                            borderColor: 'rgb(247, 37, 133)',
-                            backgroundColor: 'rgba(247, 37, 133, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Passenger Distribution'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Number of Passengers'
-                            }
-                        }
-                    }
-                }
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false, // Disable animation for performance
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: true } }
+            };
+
+            const lineChartBase = { type: 'line', options: {...chartOptions, scales: {y: {beginAtZero: true, title:{display:true}}}}, data: { labels: [], datasets: [] } };
+
+            charts.passengers = new Chart(document.getElementById('passengersChart').getContext('2d'), {
+                ...lineChartBase,
+                 options: { ...lineChartBase.options, scales: { y: {...lineChartBase.options.scales.y, title: {text: 'Passengers'} } }, plugins: {...lineChartBase.options.plugins, title: { display: true, text: 'Passenger Distribution'}}},
+                data: { labels: [], datasets: [
+                    { label: 'In Elevators', data: [], borderColor: 'var(--primary)', backgroundColor: 'rgba(67, 97, 238, 0.1)', tension: 0.3, fill: true },
+                    { label: 'Waiting', data: [], borderColor: 'var(--danger)', backgroundColor: 'rgba(247, 37, 133, 0.1)', tension: 0.3, fill: true }
+                ] }
             });
 
-            // Reward Chart
-            const rewardCtx = document.getElementById('rewardChart').getContext('2d');
-            charts.reward = new Chart(rewardCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Reward',
-                        data: [],
-                        borderColor: 'rgb(76, 201, 240)',
-                        backgroundColor: 'rgba(76, 201, 240, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'System Reward'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Reward Value'
-                            }
-                        }
-                    }
-                }
+            charts.reward = new Chart(document.getElementById('rewardChart').getContext('2d'), {
+                ...lineChartBase,
+                options: { ...lineChartBase.options, scales: { y: { title: { display: true, text: 'Reward' } } }, plugins: {...lineChartBase.options.plugins, title: { display: true, text: 'Reward per Step'}}},
+                data: { labels: [], datasets: [{ label: 'Reward', data: [], borderColor: 'var(--success)', backgroundColor: 'rgba(76, 201, 240, 0.1)', tension: 0.3, fill: true }] }
             });
 
-            // Wait Time Chart
-            const waitTimeCtx = document.getElementById('waitTimeChart').getContext('2d');
-            charts.waitTime = new Chart(waitTimeCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Average Wait Time',
-                        data: [],
-                        borderColor: 'rgb(58, 12, 163)',
-                        backgroundColor: 'rgba(58, 12, 163, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Average Waiting Time'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Time (steps)'
-                            }
-                        }
-                    }
-                }
+            charts.waitTime = new Chart(document.getElementById('waitTimeChart').getContext('2d'), {
+                 ...lineChartBase,
+                options: { ...lineChartBase.options, scales: { y: {...lineChartBase.options.scales.y, title: { display: true, text: 'Avg Wait (Steps)' } } }, plugins: {...lineChartBase.options.plugins, title: { display: true, text: 'Average Wait Time'}}},
+                data: { labels: [], datasets: [{ label: 'Avg Wait Time', data: [], borderColor: 'var(--secondary)', backgroundColor: 'rgba(58, 12, 163, 0.1)', tension: 0.3, fill: true }] }
             });
+            console.log("Charts initialized");
         }
 
-        // Call initializeCharts when the page loads
+        // Initial setup on page load
         document.addEventListener('DOMContentLoaded', () => {
-            showWelcomeModal();
-            initializeCharts();  // Initialize the charts
+            initializeCharts();
+            showWelcomeModal(); // Start with configuration
+            setSimulationState(false); // Initial button states
+             elements.startBtn.disabled = true; // Keep start disabled until config confirmed
         });
 
-        socket.on('episode_summary', function(data) {
-            // Update the episode summary modal with the statistics
-            document.getElementById('totalReward').textContent = data.total_reward;
-            document.getElementById('avgReward').textContent = data.avg_reward;
-            document.getElementById('passengersServed').textContent = 
-                `${data.total_passengers_served} / ${data.total_passengers_generated}`;
-            document.getElementById('completionRate').textContent = `${data.completion_rate}%`;
-            document.getElementById('avgWaitTime').textContent = `${data.avg_waiting_time}s`;
-            document.getElementById('maxWaitTime').textContent = `${data.max_waiting_time}s`;
-            document.getElementById('totalSteps').textContent = data.total_steps;
-            document.getElementById('avgPassengersPerStep').textContent = data.avg_passengers_per_step;
-            
-            // Show the modal
-            document.getElementById('episodeSummaryModal').style.display = 'flex';
-        });
-
-        function startNewEpisode() {
-            document.getElementById('episodeSummaryModal').style.display = 'none';
-            startSimulation();
-        }
     </script>
 </body>
-</html> 
+</html>
