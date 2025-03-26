@@ -1,3 +1,7 @@
+"""
+An extended elevator environment with configurable number of elevators and floors.
+The goal is to minimize passenger waiting time.
+"""
 import gymnasium as gym
 import pygame
 import numpy as np
@@ -6,6 +10,7 @@ import random
 from collections import deque
 import logging
 from typing import Dict, Any, Optional, List, Tuple
+from .constants import *
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -20,10 +25,11 @@ class MultiElevatorEnv(gym.Env):
     An extended elevator environment with configurable number of elevators and floors.
     The goal is to minimize passenger waiting time.
     """
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 1000}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": RENDER_FPS}
 
-    def __init__(self, render_mode: Optional[str] = None, max_steps: int = 500,
-                 passenger_rate: float = 0.1, num_elevators: int = 3, num_floors: int = 5) -> None:
+    def __init__(self, render_mode: Optional[str] = None, max_steps: int = DEFAULT_MAX_STEPS,
+                 passenger_rate: float = DEFAULT_PASSENGER_RATE, num_elevators: int = DEFAULT_NUM_ELEVATORS, 
+                 num_floors: int = DEFAULT_NUM_FLOORS) -> None:
         super().__init__()
         self.num_floors = num_floors
         self.num_elevators = num_elevators
@@ -46,7 +52,6 @@ class MultiElevatorEnv(gym.Env):
         self.render_mode = render_mode
         self.screen = None
         self.clock = None
-        self.colors = None
         self.font = None
 
         self.current_reward: float = 0.0
@@ -145,15 +150,16 @@ class MultiElevatorEnv(gym.Env):
         time_penalty = self._calculate_time_penalty()
         button_reward = self._calculate_button_response_reward()
         
-        total_reward = (0.3 * movement_reward +
-                        0.2 * pickup_reward +
-                        0.3 * delivery_reward +
-                        0.1 * button_reward +
-                        time_penalty)
+        total_reward = (WEIGHT_MOVEMENT * movement_reward +
+                       WEIGHT_PICKUP * pickup_reward +
+                       WEIGHT_DELIVERY * delivery_reward +
+                       WEIGHT_BUTTON_RESPONSE * button_reward +
+                       time_penalty)
         logger.debug("Calculated total reward: %.2f", total_reward)
         return total_reward
 
     def _calculate_button_response_reward(self) -> float:
+        """Calculate reward for responding to floor button calls."""
         button_reward = 0.0
         for floor in range(self.num_floors):
             if self.floor_buttons[floor]:
@@ -162,64 +168,73 @@ class MultiElevatorEnv(gym.Env):
                     if data["start_floor"] == floor and data["wait_end"] is None:
                         wait_duration = self.current_step - data["wait_start"]
                         longest_wait = max(longest_wait, wait_duration)
-                if longest_wait > 5:
+                if longest_wait > LONG_WAIT_THRESHOLD:
                     for elev_id in range(self.num_elevators):
                         elev_pos = self.elevator_positions[elev_id]
                         elev_dir = self.elevator_directions[elev_id]
-                        if (elev_dir == 1 and floor > elev_pos) or (elev_dir == 2 and floor < elev_pos):
-                            button_reward += 0.1 * min(5.0, 1.0 + 0.1 * longest_wait)
+                        if (elev_dir == ELEVATOR_UP and floor > elev_pos) or (elev_dir == ELEVATOR_DOWN and floor < elev_pos):
+                            button_reward += BUTTON_RESPONSE_BASE * min(MAX_BUTTON_RESPONSE_MULTIPLIER, 
+                                                                     1.0 + BUTTON_RESPONSE_WAIT_MULTIPLIER * longest_wait)
         return button_reward
 
     def _calculate_movement_reward(self) -> float:
+        """Calculate reward based on elevator movement patterns."""
         movement_reward = 0.0
         for elev_id in range(self.num_elevators):
             elev_pos = self.elevator_positions[elev_id]
             elev_dir = self.elevator_directions[elev_id]
             has_passengers = len(self.passengers_in_elevators[elev_id]) > 0
-            if elev_dir == 0 and has_passengers:
-                movement_reward -= 1.0
+            
+            # Penalize idle elevators with passengers
+            if elev_dir == ELEVATOR_IDLE and has_passengers:
+                movement_reward += IDLE_WITH_PASSENGERS_PENALTY
+                
+            # Reward moving towards destinations
             if has_passengers:
-                if self._is_moving_to_destination(elev_id) and elev_dir != 0:
-                    movement_reward += 0.5
-                elif elev_dir == 1:
+                if self._is_moving_to_destination(elev_id) and elev_dir != ELEVATOR_IDLE:
+                    movement_reward += MOVING_TO_DESTINATION_BONUS
+                elif elev_dir == ELEVATOR_UP:
                     has_dest_above = any(
                         (p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] > elev_pos)
                         for p_id in self.passengers_in_elevators[elev_id]
                     )
                     if not has_dest_above and not any(self.waiting_passengers[floor] > 0 for floor in range(elev_pos + 1, self.num_floors)):
-                        movement_reward -= 0.8
-                elif elev_dir == 2:
+                        movement_reward += MOVING_WRONG_DIRECTION_PENALTY
+                elif elev_dir == ELEVATOR_DOWN:
                     has_dest_below = any(
                         (p_id in self.waiting_time and self.waiting_time[p_id]["destination_floor"] < elev_pos)
                         for p_id in self.passengers_in_elevators[elev_id]
                     )
                     if not has_dest_below and not any(self.waiting_passengers[floor] > 0 for floor in range(0, elev_pos)):
-                        movement_reward -= 0.8
-            elif not has_passengers and elev_dir != 0:
-                if elev_dir == 1:
+                        movement_reward += MOVING_WRONG_DIRECTION_PENALTY
+            # Handle empty elevators
+            elif not has_passengers and elev_dir != ELEVATOR_IDLE:
+                if elev_dir == ELEVATOR_UP:
                     waiting_floors_above = [floor for floor in range(elev_pos + 1, self.num_floors) if self.waiting_passengers[floor] > 0]
                     if waiting_floors_above:
                         closest_floor = min(waiting_floors_above)
                         other_elevators_heading_up = [i for i in range(self.num_elevators)
-                                                      if i != elev_id and self.elevator_directions[i] == 1 and self.elevator_positions[i] < closest_floor]
+                                                    if i != elev_id and self.elevator_directions[i] == ELEVATOR_UP 
+                                                    and self.elevator_positions[i] < closest_floor]
                         if not other_elevators_heading_up or all(self.elevator_positions[i] <= elev_pos for i in other_elevators_heading_up):
-                            movement_reward += 0.3
+                            movement_reward += MOVING_TO_PICKUP_BONUS
                         else:
-                            movement_reward += 0.1
+                            movement_reward += MOVING_TO_PICKUP_SMALL_BONUS
                     else:
-                        movement_reward -= 0.5
-                elif elev_dir == 2:
+                        movement_reward += MOVING_WITHOUT_PASSENGERS_PENALTY
+                elif elev_dir == ELEVATOR_DOWN:
                     waiting_floors_below = [floor for floor in range(0, elev_pos) if self.waiting_passengers[floor] > 0]
                     if waiting_floors_below:
                         closest_floor = max(waiting_floors_below)
                         other_elevators_heading_down = [i for i in range(self.num_elevators)
-                                                        if i != elev_id and self.elevator_directions[i] == 2 and self.elevator_positions[i] > closest_floor]
+                                                      if i != elev_id and self.elevator_directions[i] == ELEVATOR_DOWN 
+                                                      and self.elevator_positions[i] > closest_floor]
                         if not other_elevators_heading_down or all(self.elevator_positions[i] >= elev_pos for i in other_elevators_heading_down):
-                            movement_reward += 0.3
+                            movement_reward += MOVING_TO_PICKUP_BONUS
                         else:
-                            movement_reward += 0.1
+                            movement_reward += MOVING_TO_PICKUP_SMALL_BONUS
                     else:
-                        movement_reward -= 0.5
+                        movement_reward += MOVING_WITHOUT_PASSENGERS_PENALTY
         return movement_reward
 
     def _is_moving_to_destination(self, elevator_id: int) -> bool:
@@ -238,11 +253,13 @@ class MultiElevatorEnv(gym.Env):
         return False
 
     def _calculate_pickup_reward(self) -> float:
+        """Calculate reward for picking up passengers."""
         pickup_reward = 0.0
         for passenger_id, data in self.waiting_time.items():
             if data["wait_end"] == self.current_step:
                 waiting_duration = data["wait_end"] - data["wait_start"]
-                pickup_reward += 2.0 * min(5.0, 1.0 + 0.2 * waiting_duration)
+                pickup_reward += PICKUP_BASE_REWARD * min(MAX_PICKUP_MULTIPLIER, 
+                                                        1.0 + PICKUP_WAIT_MULTIPLIER * waiting_duration)
         return pickup_reward
 
     def _calculate_delivery_reward(self) -> float:
@@ -263,29 +280,13 @@ class MultiElevatorEnv(gym.Env):
         return delivery_reward
 
     def _calculate_time_penalty(self) -> float:
+        """Calculate penalty for long waiting times."""
         time_penalty = 0.0
         for passenger_id, data in self.waiting_time.items():
             if data["wait_end"] is None:
-                wait_duration = self.current_step - data["wait_start"]
-                if wait_duration <= 5:
-                    time_penalty -= 0.1 * wait_duration
-                else:
-                    time_penalty -= 0.1 * 5 + 0.3 * (wait_duration - 5) + 0.1 * (1.1 ** min(wait_duration - 5, 20))
-        for elev_id in range(self.num_elevators):
-            for passenger_id in self.passengers_in_elevators[elev_id]:
-                if passenger_id not in self.waiting_time:
-                    continue
-                data = self.waiting_time[passenger_id]
-                if data["wait_end"] is None:
-                    continue
-                travel_duration = self.current_step - data["wait_end"]
-                start_floor = data["start_floor"]
-                dest_floor = data["destination_floor"]
-                floor_distance = abs(dest_floor - start_floor)
-                expected_travel_time = floor_distance + 1
-                excess_travel_time = max(0, travel_duration - expected_travel_time)
-                if excess_travel_time > 0:
-                    time_penalty -= 0.2 * excess_travel_time + 0.1 * (1.1 ** min(excess_travel_time, 30))
+                waiting_duration = self.current_step - data["wait_start"]
+                time_penalty += TIME_PENALTY_BASE * min(MAX_TIME_PENALTY, 
+                                                      1.0 + TIME_PENALTY_MULTIPLIER * waiting_duration)
         return time_penalty
 
     def step(self, action: Any) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:
@@ -355,39 +356,28 @@ class MultiElevatorEnv(gym.Env):
                 self.floor_buttons[current_floor] = True
     
     def _render_setup(self) -> None:
+        """Set up the rendering environment."""
         pygame.init()
-        self.screen_width = 800
-        self.screen_height = 600
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
-        pygame.display.set_caption("Multi-Elevator Simulator")
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Multi-Elevator Environment")
         self.clock = pygame.time.Clock()
-        self.colors = {
-            "background": (240, 240, 240),
-            "elevator": [(100, 100, 100), (120, 80, 80), (80, 120, 80), (80, 80, 120)],
-            "floor": (200, 200, 200),
-            "text": (0, 0, 0),
-            "button_off": (150, 150, 150),
-            "button_on": (255, 0, 0),
-        }
-        self.font = pygame.font.SysFont(None, 24)
-        self.button_font = pygame.font.SysFont(None, 12)
+        self.font = pygame.font.Font(None, 24)
     
     def _render_frame(self) -> None:
-        if self.screen is None:
-            self._render_setup()
-        self.screen.fill(self.colors["background"])
-        info_height = 80
-        available_height = self.screen_height - info_height
-        floor_height = available_height // self.num_floors
-        elevator_width = 60
-        elevator_height = floor_height - 10
-        elevator_spacing = self.screen_width // (self.num_elevators + 2)
-        self._draw_floors(floor_height, info_height)
-        self._draw_elevators(elevator_spacing, elevator_width, elevator_height, floor_height, info_height)
+        """Render the current frame."""
+        self.screen.fill(COLORS['WHITE'])
+        
+        # Calculate dimensions
+        floor_height = FLOOR_HEIGHT
+        y_offset = Y_OFFSET
+        
+        # Draw floors and elevators
+        self._draw_floors(floor_height, y_offset)
+        self._draw_elevators(ELEVATOR_SPACING, ELEVATOR_WIDTH, floor_height, floor_height, y_offset)
         self._draw_info()
+        
         pygame.display.flip()
         self.clock.tick(self.metadata["render_fps"])
-        pygame.event.pump()
     
     def _draw_floors(self, floor_height: int, y_offset: int) -> None:
         for floor in range(self.num_floors):
@@ -438,10 +428,3 @@ class MultiElevatorEnv(gym.Env):
         if self.screen is not None:
             pygame.quit()
             self.screen = None
-
-# Register the environment for Gym usage
-from gymnasium.envs.registration import register
-register(
-    id='MultiElevator-v0',
-    entry_point='multi_elevator_env:MultiElevatorEnv',
-)

@@ -13,7 +13,15 @@ monkey.patch_all()
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
+
+# --- Import the environment package FIRST to register the environment ---
+import multi_elevator.environment
+# -----------------------------------------------------------------------
+
+# --- Now import the specific class ---
 from multi_elevator.environment.env import MultiElevatorEnv
+# -------------------------------------
+
 import json
 from stable_baselines3 import PPO
 import torch

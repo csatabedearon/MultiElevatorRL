@@ -34,44 +34,45 @@ venv.bak/
 .vscode/
 *.swp
 *.swo
-.DS_Store
+*~
 
 # Project specific
+logs/
+*.log
+ppo_multi_elevator_tensorboard/
+best_model/
+best_model_v*/
 *.zip
 temp_model.zip
 
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
+# Testing
 .coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
+.pytest_cache/
+cover/
+
+# Distribution
+dist/
+build/
+*.egg-info/
 
 # mypy
 .mypy_cache/
