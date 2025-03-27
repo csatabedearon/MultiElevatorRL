@@ -28,5 +28,22 @@ env_logger.setLevel(logging.INFO)
 if __name__ == '__main__':
     multiprocessing.freeze_support()
 
-    # Train with default settings
-    train(seed=42)
+    # --- Define the desired policy network architecture ---
+    custom_policy_kwargs = {
+        "net_arch": dict(
+            pi=[128, 128],  # Policy network layers
+            vf=[128, 128]   # Value function network layers
+        )
+    }
+    # -------------------------------------------------------
+
+    # --- Define the desired total timesteps ---
+    total_training_steps = 3_000_000  # Set to 3 million
+    # ------------------------------------------
+
+    # Train with custom policy and total timesteps
+    train(
+        seed=42,
+        policy_kwargs=custom_policy_kwargs,
+        total_timesteps=total_training_steps
+    )

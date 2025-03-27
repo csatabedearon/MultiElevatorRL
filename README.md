@@ -80,7 +80,7 @@ python -m multi_elevator.training.train
 
 Training progress can be monitored using TensorBoard:
 ```bash
-tensorboard --logdir logs/
+tensorboard --logdir ppo_multi_elevator_tensorboard
 ```
 
 ### Testing

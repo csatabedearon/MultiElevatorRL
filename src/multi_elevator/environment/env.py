@@ -145,7 +145,7 @@ class MultiElevatorEnv(gym.Env):
     def calculate_reward(self) -> float:
         """Calculate and return the total reward based on movement, pickup, delivery, time penalty, and button response."""
         # --- Logging Start ---
-        # logger.debug("--- Calculating reward at step %d ---", self.current_step)
+        logger.debug("--- Calculating reward at step %d ---", self.current_step)
         # --- Logging End ---
 
         movement_reward = self._calculate_movement_reward()
@@ -155,11 +155,11 @@ class MultiElevatorEnv(gym.Env):
         button_reward = self._calculate_button_response_reward()
 
         # --- Logging Individual Components ---
-        # logger.debug(
-        #     f"Raw Rewards: Move={movement_reward:.2f}, Pickup={pickup_reward:.2f}, "
-        #     f"Deliver={delivery_reward:.2f}, Button={button_reward:.2f}, "
-        #     f"TimePen={time_penalty:.2f}"
-        # )
+        logger.debug(
+            f"Raw Rewards: Move={movement_reward:.2f}, Pickup={pickup_reward:.2f}, "
+            f"Deliver={delivery_reward:.2f}, Button={button_reward:.2f}, "
+            f"TimePen={time_penalty:.2f}"
+        )
         # --- Logging End ---
 
         total_reward = (WEIGHT_MOVEMENT * movement_reward +
@@ -169,14 +169,14 @@ class MultiElevatorEnv(gym.Env):
                        time_penalty)  # Ensure time_penalty is weighted if intended
 
         # --- Logging Total (Enhanced) ---
-        # logger.debug(
-        #     f"Weighted Total Reward: {total_reward:.2f} "
-        #     f"(W_Move={WEIGHT_MOVEMENT*movement_reward:.2f}, "
-        #     f"W_Pickup={WEIGHT_PICKUP*pickup_reward:.2f}, "
-        #     f"W_Deliver={WEIGHT_DELIVERY*delivery_reward:.2f}, "
-        #     f"W_Button={WEIGHT_BUTTON_RESPONSE*button_reward:.2f}, "
-        #     f"TimePen={time_penalty:.2f})"
-        # )
+        logger.debug(
+            f"Weighted Total Reward: {total_reward:.2f} "
+            f"(W_Move={WEIGHT_MOVEMENT*movement_reward:.2f}, "
+            f"W_Pickup={WEIGHT_PICKUP*pickup_reward:.2f}, "
+            f"W_Deliver={WEIGHT_DELIVERY*delivery_reward:.2f}, "
+            f"W_Button={WEIGHT_BUTTON_RESPONSE*button_reward:.2f}, "
+            f"TimePen={time_penalty:.2f})"
+        )
         # --- Logging End ---
         return total_reward
 
@@ -200,8 +200,8 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Logging Start ---
         # Log just before returning
-        # if button_reward != 0.0: # Optional: reduce noise by only logging non-zero
-        #     logger.debug(f"_calculate_button_response_reward: {button_reward:.2f}")
+        if button_reward != 0.0: # Optional: reduce noise by only logging non-zero
+            logger.debug(f"_calculate_button_response_reward: {button_reward:.2f}")
         # --- Logging End ---
         return button_reward
 
@@ -266,8 +266,8 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Logging Start ---
         # Log just before returning, after the loop finishes
-        # if movement_reward != 0.0: # Optional: reduce noise
-        #     logger.debug(f"_calculate_movement_reward: {movement_reward:.2f}")
+        if movement_reward != 0.0: # Optional: reduce noise
+            logger.debug(f"_calculate_movement_reward: {movement_reward:.2f}")
         # --- Logging End ---
         return movement_reward
 
@@ -297,8 +297,8 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Logging Start ---
         # Log just before returning
-        # if pickup_reward != 0.0: # Optional: reduce noise
-        #     logger.debug(f"_calculate_pickup_reward: {pickup_reward:.2f}")
+        if pickup_reward != 0.0: # Optional: reduce noise
+            logger.debug(f"_calculate_pickup_reward: {pickup_reward:.2f}")
         # --- Logging End ---
         return pickup_reward
 
@@ -320,8 +320,8 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Logging Start ---
         # Log just before returning
-        # if delivery_reward != 0.0: # Optional: reduce noise
-        #     logger.debug(f"_calculate_delivery_reward: {delivery_reward:.2f}")
+        if delivery_reward != 0.0: # Optional: reduce noise
+            logger.debug(f"_calculate_delivery_reward: {delivery_reward:.2f}")
         # --- Logging End ---
         return delivery_reward
 
@@ -343,8 +343,8 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Logging Start ---
         # Log just before returning
-        # if time_penalty != 0.0: # Optional: reduce noise
-        #     logger.debug(f"_calculate_time_penalty: {time_penalty:.2f}")
+        if time_penalty != 0.0: # Optional: reduce noise
+            logger.debug(f"_calculate_time_penalty: {time_penalty:.2f}")
         # --- Logging End ---
         return time_penalty
 
