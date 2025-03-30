@@ -23,6 +23,15 @@
             --elevator-size-desktop: 70px;
             --elevator-size-tablet: 55px;
             --elevator-size-mobile: 45px;
+            /* New variables for elevator and shaft styling */
+            --shaft-bg: #3a3a3a;
+            --shaft-rail-color: #555555;
+            --elevator-bg-start: #bdbdbd;
+            --elevator-bg-mid: #757575;
+            --elevator-bg-end: #9e9e9e;
+            --elevator-border: #424242;
+            --elevator-door-line: rgba(0, 0, 0, 0.3);
+            --floor-edge-color: #666666;
         }
 
         * {
@@ -130,30 +139,32 @@
 
         .building {
             display: flex;
-            height: auto; /* Let content dictate height */
+            height: auto;
             position: relative;
-            border-left: 4px solid var(--secondary);
-            overflow: visible; /* Important for absolute positioned elevators */
+            overflow: visible;
             margin-bottom: 20px;
-            min-width: 300px; /* Minimum width before scrolling */
-            /* padding-right will be set by JS */
+            min-width: 300px;
+            background-color: #e0e0e0;
         }
 
         .floors {
             display: flex;
-            flex-direction: column-reverse; /* Floors stack bottom-up */
-            width: 100%; /* Take remaining width */
+            flex-direction: column-reverse;
+            flex-grow: 1;
             height: auto;
         }
 
         .floor {
-            min-height: var(--floor-height-desktop); /* Use CSS var */
+            min-height: var(--floor-height-desktop);
             display: flex;
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid #bdbdbd;
             position: relative;
             transition: background-color 0.3s ease;
             align-items: center;
             padding: 0 10px;
+            background-color: var(--light);
+            border-right: 4px solid var(--floor-edge-color);
+            box-sizing: border-box;
         }
 
         .floor:last-child {
@@ -219,34 +230,60 @@
         }
 
         .elevator-shaft {
-            width: calc(var(--elevator-size-desktop) + 10px); /* Elevator size + margin */
+            width: calc(var(--elevator-size-desktop) + 10px);
             height: 100%;
             position: absolute;
-            background-color: rgba(0, 0, 0, 0.03);
+            background: linear-gradient(to right, #2b2b2b, var(--shaft-bg), #2b2b2b);
             border-radius: 4px;
-            right: 0; /* Positioned by JS */
+            right: 0;
             top: 0;
             bottom: 0;
+            box-shadow: inset 3px 0 8px rgba(0, 0, 0, 0.5);
+            z-index: 0;
+        }
+
+        .elevator-shaft::before,
+        .elevator-shaft::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--shaft-rail-color);
+            border-radius: 2px;
+            box-shadow: inset 1px 0 2px rgba(0,0,0,0.6);
+            z-index: 1;
+        }
+
+        .elevator-shaft::before {
+            left: 6px;
+        }
+
+        .elevator-shaft::after {
+            right: 6px;
         }
 
         .elevator {
             position: absolute;
-            width: var(--elevator-size-desktop); /* Use CSS var */
-            height: var(--elevator-size-desktop); /* Use CSS var */
-            background: linear-gradient(to bottom, var(--secondary), var(--primary));
-            border-radius: 8px;
+            width: var(--elevator-size-desktop);
+            height: var(--elevator-size-desktop);
+            background: linear-gradient(160deg, var(--elevator-bg-start) 0%, var(--elevator-bg-mid) 50%, var(--elevator-bg-end) 100%);
+            border: 1px solid var(--elevator-border);
+            border-radius: 6px;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            color: white;
+            color: #eeeeee;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            gap: 2px; /* Reduced gap */
-            bottom: 5px; /* Position from bottom of shaft */
-            left: 5px; /* Position from left of shaft */
-            font-size: 0.8rem; /* Smaller base font */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            gap: 2px;
+            bottom: 5px;
+            left: 5px;
+            font-size: 0.8rem;
             text-align: center;
+            z-index: 2;
         }
 
         .elevator .elevator-id {
@@ -575,10 +612,15 @@
                  width: var(--elevator-size-tablet);
                  height: var(--elevator-size-tablet);
                  font-size: 0.75rem;
+                 border-radius: 5px;
              }
              .elevator-shaft { width: calc(var(--elevator-size-tablet) + 10px); }
              .floor-info { width: 100px; }
              .graph-container { height: 220px; }
+             .elevator-shaft::before, .elevator-shaft::after { width: 3px; }
+             .elevator-shaft::before { left: 5px; }
+             .elevator-shaft::after { right: 5px; }
+             .floor { border-right-width: 3px; }
         }
 
         /* Mobile */
@@ -610,7 +652,7 @@
                  width: var(--elevator-size-mobile);
                  height: var(--elevator-size-mobile);
                  font-size: 0.65rem; /* Even smaller font */
-                 border-radius: 6px;
+                 border-radius: 4px;
                  gap: 1px;
              }
              .elevator-shaft { width: calc(var(--elevator-size-mobile) + 8px); } /* Adjust shaft */
@@ -1445,8 +1487,8 @@
                 for (let i = 0; i < numElevators; i++) {
                     const shaft = document.createElement('div');
                     shaft.className = 'elevator-shaft';
-                     // Position shafts from right to left
-                     shaft.style.right = `${i * shaftWidth + 5}px`; // Stagger shafts from the right edge
+                    // Position shafts: E1 on left, E<N> on right within the shaft area
+                    shaft.style.right = `${(numElevators - 1 - i) * shaftWidth + 5}px`; // Reverse the positioning order
 
                     const elevator = document.createElement('div');
                     elevator.className = 'elevator';
