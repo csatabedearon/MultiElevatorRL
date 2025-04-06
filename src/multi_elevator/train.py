@@ -86,7 +86,8 @@ def train(
     max_grad_norm: Optional[float] = None,
     target_kl: Optional[float] = None,
     stats_window_size: Optional[int] = None,
-    policy_kwargs: Optional[dict] = None
+    policy_kwargs: Optional[dict] = None,
+    session_id: Optional[str] = None
 ) -> None:
     """
     Train the Multi-Elevator RL model.
@@ -110,6 +111,7 @@ def train(
         target_kl: Target KL divergence (overrides config)
         stats_window_size: Window size for statistics (overrides config)
         policy_kwargs: Policy network architecture (overrides config)
+        session_id: Unique identifier for this training session
     """
     # Update config with provided parameters
     config = TRAINING_CONFIG.copy()
@@ -122,6 +124,19 @@ def train(
     if n_eval_episodes is not None:
         config["n_eval_episodes"] = n_eval_episodes
     
+    # Create session-specific directories
+    session_dir = MODEL_PATHS["best_model"].parent / f"session_{session_id}" if session_id else MODEL_PATHS["best_model"].parent
+    session_dir.mkdir(parents=True, exist_ok=True)
+    
+    session_checkpoints_dir = session_dir / "checkpoints"
+    session_checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    
+    session_tensorboard_dir = TENSORBOARD_DIR / f"session_{session_id}" if session_id else TENSORBOARD_DIR
+    session_tensorboard_dir.mkdir(parents=True, exist_ok=True)
+    
+    session_logs_dir = LOGS_DIR / f"session_{session_id}" if session_id else LOGS_DIR
+    session_logs_dir.mkdir(parents=True, exist_ok=True)
+    
     # Create training environment
     train_env = create_vec_env(config["num_envs"], seed)
     
@@ -131,8 +146,8 @@ def train(
     # Create callbacks
     eval_callback = EvalCallback(
         eval_env,
-        best_model_save_path=str(MODEL_PATHS["best_model"].parent),
-        log_path=str(LOGS_DIR),
+        best_model_save_path=str(session_dir),
+        log_path=str(session_logs_dir),
         eval_freq=config["eval_freq"],
         n_eval_episodes=config["n_eval_episodes"],
         deterministic=True,
@@ -141,8 +156,8 @@ def train(
     
     checkpoint_callback = CheckpointCallback(
         save_freq=config["eval_freq"],
-        save_path=str(MODEL_PATHS["checkpoints"]),
-        name_prefix="ppo_multi_elevator"
+        save_path=str(session_checkpoints_dir),
+        name_prefix=f"ppo_multi_elevator_{session_id}" if session_id else "ppo_multi_elevator"
     )
     
     # Create and train the model
@@ -163,7 +178,7 @@ def train(
         target_kl=target_kl or config["target_kl"],
         stats_window_size=stats_window_size or config["stats_window_size"],
         policy_kwargs=policy_kwargs or config["policy_kwargs"],
-        tensorboard_log=str(TENSORBOARD_DIR),
+        tensorboard_log=str(session_tensorboard_dir),
         verbose=1
     )
     
@@ -177,8 +192,8 @@ def train(
         logger.info("Training interrupted by user")
     finally:
         # Save the final model
-        model.save(MODEL_PATHS["latest_model"])
-        logger.info("Training completed")
+        model.save(session_dir / "latest_model.zip")
+        logger.info(f"Training completed. Models saved in {session_dir}")
         
         # Close environments
         train_env.close()

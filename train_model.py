@@ -2,6 +2,7 @@
 import logging  # Import the logging module
 import multiprocessing
 from multi_elevator.train import train
+import datetime
 
 # --- Add this section to configure logging ---
 # Get the specific logger used by the environment module
@@ -28,6 +29,9 @@ env_logger.setLevel(logging.INFO)
 if __name__ == '__main__':
     multiprocessing.freeze_support()
 
+    # Generate a unique timestamp for this training session
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # --- Define the desired policy network architecture ---
     custom_policy_kwargs = {
         "net_arch": dict(
@@ -38,12 +42,13 @@ if __name__ == '__main__':
     # -------------------------------------------------------
 
     # --- Define the desired total timesteps ---
-    total_training_steps = 3_000_000  # Set to 3 million
+    total_training_steps = 1_000_000  # Set to 3 million
     # ------------------------------------------
 
     # Train with custom policy and total timesteps
     train(
-        seed=42,
+        seed=22,
         policy_kwargs=custom_policy_kwargs,
-        total_timesteps=total_training_steps
+        total_timesteps=total_training_steps,
+        session_id=timestamp  # Pass the timestamp as session_id
     )

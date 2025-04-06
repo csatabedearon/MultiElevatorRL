@@ -17,11 +17,8 @@ setup(
         "flask>=2.3.0",
         "flask-socketio>=5.3.0",
         "python-socketio>=5.9.0",
-        # Use either eventlet OR gevent, not both listed usually.
-        # Gevent seems preferred by your web_app.py patches.
-        # "eventlet>=0.33.0", # Keep if needed, but web_app uses gevent
-        "gevent>=23.9.1",     # From requirements.txt
-        "gevent-websocket>=0.10.1", # From requirements.txt
+        "gevent>=23.9.1",
+        "gevent-websocket>=0.10.1",
         "tensorboard>=2.13.0",
         "tqdm>=4.65.0",
         "rich>=13.4.0",
@@ -37,13 +34,6 @@ setup(
         ],
     },
     python_requires=">=3.8",
-    # ---- REMOVE OR COMMENT OUT THIS SECTION ----
-    # entry_points={
-    #     "gymnasium.envs": [
-    #         "MultiElevator-v0=multi_elevator.environment:MultiElevatorEnv",
-    #     ],
-    # },
-    # --------------------------------------------
     author="Csata Bede Aron",
     author_email="csatabedearonka@gmail.com",
     description="A multi-elevator reinforcement learning environment",
