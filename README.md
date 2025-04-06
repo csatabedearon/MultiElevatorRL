@@ -49,6 +49,7 @@ pip install -e .
 - CUDA-capable GPU (recommended for training)
 - At least 8GB RAM
 - 20GB free disk space
+- Visual C++ Redistributable (download from: https://aka.ms/vs/17/release/vc_redist.x64.exe)
 
 ### Dependencies
 The project uses several key libraries:

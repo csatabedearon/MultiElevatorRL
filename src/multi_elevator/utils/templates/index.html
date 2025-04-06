@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
+            /* Light Theme Variables */
+            --body-bg: #f0f2f5;
             --primary: #4361ee;
             --primary-light: #4895ef;
             --secondary: #3a0ca3;
@@ -14,8 +16,12 @@
             --danger: #f72585;
             --warning: #ffd60a;
             --light: #f8f9fa;
+            --card-bg: white;
             --dark: #2b2d42;
             --gray: #8d99ae;
+            --text-color: #2b2d42;
+            --text-muted: #6c757d;
+            --border-color: #e0e0e0;
             --transition: all 0.3s ease;
             --floor-height-desktop: 80px;
             --floor-height-tablet: 60px;
@@ -23,6 +29,31 @@
             --elevator-size-desktop: 70px;
             --elevator-size-tablet: 55px;
             --elevator-size-mobile: 45px;
+            /* New variables for elevator and shaft styling */
+            --shaft-bg: #3a3a3a;
+            --shaft-rail-color: #555555;
+            --elevator-bg-start: #bdbdbd;
+            --elevator-bg-mid: #757575;
+            --elevator-bg-end: #9e9e9e;
+            --elevator-border: #424242;
+            --elevator-door-line: rgba(0, 0, 0, 0.3);
+            --elevator-text-color: #eeeeee;
+            --floor-edge-color: #666666;
+            --floor-bg: #f8f9fa;
+            --floor-border: #bdbdbd;
+            --floor-button-bg: #e9ecef;
+            --floor-button-hover-bg: var(--primary-light);
+            --floor-button-active-bg: var(--danger);
+            --floor-button-text: var(--dark);
+            --floor-button-hover-text: white;
+            --floor-button-active-text: white;
+            --modal-bg: white;
+            --modal-overlay-bg: rgba(0, 0, 0, 0.6);
+            --input-bg: white;
+            --input-border: #e9ecef;
+            --input-focus-border: var(--primary);
+            --chart-label-color: #666;
+            --chart-grid-color: rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -35,10 +66,10 @@
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f0f2f5;
-            color: var(--dark);
+            background-color: var(--body-bg);
+            color: var(--text-color);
             line-height: 1.6;
-            font-size: 16px; /* Base font size */
+            font-size: 16px;
         }
 
         .container {
@@ -50,26 +81,26 @@
 
         .header {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            padding: 1rem 1.5rem; /* Adjusted padding */
+            color: var(--light);
+            padding: 1rem 1.5rem;
             text-align: center;
             border-radius: 12px;
-            margin-bottom: 1.5rem; /* Reduced margin */
+            margin-bottom: 1.5rem;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            display: flex; /* Use flex for alignment */
-            flex-direction: column; /* Stack items vertically */
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 0.75rem; /* Space between title and button */
+            gap: 0.75rem;
         }
 
         .header h1 {
-            font-size: 1.75rem; /* Slightly smaller */
+            font-size: 1.75rem;
             font-weight: 600;
             margin: 0;
         }
 
         .config-button {
-            background-color: var(--primary-light); /* Lighter background */
+            background-color: var(--primary-light);
             color: white;
             padding: 0.5rem 1rem;
             border: none;
@@ -85,7 +116,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* Default 3 columns: Viz, Controls/Stats, Graphs */
+            grid-template-columns: repeat(3, 1fr);
             grid-template-areas:
                 "viz controls stats"
                 "viz graphs graphs";
@@ -98,14 +129,13 @@
         .stats-area { grid-area: stats; }
         .graphs-area { grid-area: graphs; }
 
-
         .card {
-            background-color: white;
+            background-color: var(--card-bg);
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             padding: 1.5rem;
             transition: var(--transition);
-            display: flex; /* Allow flex direction changes */
+            display: flex;
             flex-direction: column;
         }
 
@@ -113,10 +143,9 @@
             font-size: 1.2rem;
             margin-bottom: 1rem;
             color: var(--secondary);
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: 0.5rem;
         }
-
 
         .card:hover {
             transform: translateY(-2px);
@@ -124,40 +153,42 @@
         }
 
         .building-container {
-             overflow-x: auto; /* Allow horizontal scroll if needed */
-             padding-bottom: 10px; /* Space for scrollbar */
+             overflow-x: auto;
+             padding-bottom: 10px;
         }
 
         .building {
             display: flex;
-            height: auto; /* Let content dictate height */
+            height: auto;
             position: relative;
-            border-left: 4px solid var(--secondary);
-            overflow: visible; /* Important for absolute positioned elevators */
+            overflow: visible;
             margin-bottom: 20px;
-            min-width: 300px; /* Minimum width before scrolling */
-            /* padding-right will be set by JS */
+            min-width: 300px;
+            background-color: #e0e0e0;
         }
 
         .floors {
             display: flex;
-            flex-direction: column-reverse; /* Floors stack bottom-up */
-            width: 100%; /* Take remaining width */
+            flex-direction: column-reverse;
+            flex-grow: 1;
             height: auto;
         }
 
         .floor {
-            min-height: var(--floor-height-desktop); /* Use CSS var */
+            min-height: var(--floor-height-desktop);
             display: flex;
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid var(--floor-border);
             position: relative;
             transition: background-color 0.3s ease;
             align-items: center;
             padding: 0 10px;
+            background-color: var(--floor-bg);
+            border-right: 4px solid var(--floor-edge-color);
+            box-sizing: border-box;
         }
 
         .floor:last-child {
-             border-bottom: none; /* No bottom border on the top floor */
+             border-bottom: none;
         }
 
         .floor:hover {
@@ -165,15 +196,15 @@
         }
 
         .floor-info {
-            width: 120px; /* Adjust as needed */
+            width: 120px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 0.5rem 0.5rem; /* Reduced padding */
+            padding: 0.5rem 0.5rem;
             background-color: var(--light);
             border-right: 1px dashed var(--gray);
-            font-size: 0.85rem; /* Slightly smaller font */
-            flex-shrink: 0; /* Prevent shrinking */
+            font-size: 0.85rem;
+            flex-shrink: 0;
         }
 
         .floor-number {
@@ -187,7 +218,7 @@
         }
 
         .floor-button-container {
-            margin-left: auto; /* Push button to the right */
+            margin-left: auto;
             padding-left: 10px;
         }
 
@@ -195,7 +226,7 @@
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            background-color: #e9ecef;
+            background-color: var(--floor-button-bg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -204,49 +235,75 @@
             border: none;
             font-size: 1rem;
             font-weight: bold;
-            color: var(--dark);
+            color: var(--floor-button-text);
         }
 
         .floor-button:hover {
-            background-color: var(--primary-light);
-            color: white;
+            background-color: var(--floor-button-hover-bg);
+            color: var(--floor-button-hover-text);
         }
 
         .floor-button.active {
-            background-color: var(--danger);
-            color: white;
+            background-color: var(--floor-button-active-bg);
+            color: var(--floor-button-active-text);
             animation: pulse 1.5s infinite;
         }
 
         .elevator-shaft {
-            width: calc(var(--elevator-size-desktop) + 10px); /* Elevator size + margin */
+            width: calc(var(--elevator-size-desktop) + 10px);
             height: 100%;
             position: absolute;
-            background-color: rgba(0, 0, 0, 0.03);
+            background: linear-gradient(to right, #2b2b2b, var(--shaft-bg), #2b2b2b);
             border-radius: 4px;
-            right: 0; /* Positioned by JS */
+            right: 0;
             top: 0;
             bottom: 0;
+            box-shadow: inset 3px 0 8px rgba(0, 0, 0, 0.5);
+            z-index: 0;
+        }
+
+        .elevator-shaft::before,
+        .elevator-shaft::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: var(--shaft-rail-color);
+            border-radius: 2px;
+            box-shadow: inset 1px 0 2px rgba(0,0,0,0.6);
+            z-index: 1;
+        }
+
+        .elevator-shaft::before {
+            left: 6px;
+        }
+
+        .elevator-shaft::after {
+            right: 6px;
         }
 
         .elevator {
             position: absolute;
-            width: var(--elevator-size-desktop); /* Use CSS var */
-            height: var(--elevator-size-desktop); /* Use CSS var */
-            background: linear-gradient(to bottom, var(--secondary), var(--primary));
-            border-radius: 8px;
+            width: var(--elevator-size-desktop);
+            height: var(--elevator-size-desktop);
+            background: linear-gradient(160deg, var(--elevator-bg-start) 0%, var(--elevator-bg-mid) 50%, var(--elevator-bg-end) 100%);
+            border: 1px solid var(--elevator-border);
+            border-radius: 6px;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            color: white;
+            color: var(--elevator-text-color);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            gap: 2px; /* Reduced gap */
-            bottom: 5px; /* Position from bottom of shaft */
-            left: 5px; /* Position from left of shaft */
-            font-size: 0.8rem; /* Smaller base font */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            gap: 2px;
+            bottom: 5px;
+            left: 5px;
+            font-size: 0.8rem;
             text-align: center;
+            z-index: 2;
         }
 
         .elevator .elevator-id {
@@ -254,13 +311,13 @@
         }
 
         .elevator .direction {
-            font-size: 1.1em; /* Relative size */
+            font-size: 1.1em;
             font-weight: bold;
             line-height: 1;
         }
 
         .elevator .passenger-count {
-            font-size: 0.85em; /* Relative size */
+            font-size: 0.85em;
             background: rgba(0, 0, 0, 0.2);
             padding: 1px 6px;
             border-radius: 10px;
@@ -268,18 +325,18 @@
         }
 
         .btn {
-            padding: 0.6rem 1.2rem; /* Slightly smaller padding */
+            padding: 0.6rem 1.2rem;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             transition: var(--transition);
             font-weight: 600;
-            font-size: 0.85rem; /* Smaller font */
+            font-size: 0.85rem;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            line-height: 1.2; /* Ensure text fits */
+            line-height: 1.2;
         }
 
         .btn-primary {
@@ -302,8 +359,6 @@
             transform: translateY(-1px);
         }
 
-
-        /* Controls Styling */
         .control-panel {
             margin-top: 1rem;
         }
@@ -321,30 +376,30 @@
         }
 
         #modelFile {
-            margin: 0.5rem 0 1rem 0; /* Adjust margins */
+            margin: 0.5rem 0 1rem 0;
             padding: 0.5rem;
             border: 1px solid #e0e0e0;
             border-radius: 4px;
-            width: 100%; /* Take full width */
+            width: 100%;
             font-size: 0.85rem;
         }
 
         .button-container {
             display: flex;
             gap: 0.75rem;
-            margin-bottom: 1rem; /* Space below buttons */
-            flex-wrap: wrap; /* Allow buttons to wrap */
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
 
         .slider-container {
-            margin-bottom: 1rem; /* Consistent spacing */
+            margin-bottom: 1rem;
         }
 
         .slider-container label {
             display: block;
-            margin-bottom: 0.3rem; /* Smaller margin */
+            margin-bottom: 0.3rem;
             font-weight: 500;
-            font-size: 0.85rem; /* Smaller label */
+            font-size: 0.85rem;
         }
 
         .slider-container input[type="range"] {
@@ -356,11 +411,10 @@
         .slider-value {
             font-size: 0.8rem;
             color: var(--gray);
-            display: inline-block; /* Keep it next to slider if space allows */
-            min-width: 30px; /* Ensure space for value */
+            display: inline-block;
+            min-width: 30px;
         }
 
-        /* Stats Styling */
         #stats {
              font-size: 0.9rem;
              line-height: 1.5;
@@ -381,8 +435,8 @@
         .elevator-status-card {
             margin: 0.5rem 0;
             padding: 0.75rem;
-            background-color: #fff;
-            border: 1px solid #ddd;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             font-size: 0.85rem;
         }
@@ -390,34 +444,31 @@
             color: var(--primary);
         }
 
-
-        /* Graphs Styling */
         .graphs-area {
              display: grid;
-             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive grid for graphs */
+             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
              gap: 1rem;
         }
 
         .graph-container {
-            height: 250px; /* Default height */
+            height: 250px;
             padding: 1rem;
-            background-color: white;
+            background-color: var(--card-bg);
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            /* Let grid handle layout */
         }
         .graph-container canvas {
              max-width: 100%;
+             background-color: transparent;
         }
 
-        /* Status Message */
         .status-message {
             margin-top: 1rem;
             padding: 0.75rem;
             border-radius: 6px;
             font-weight: 500;
             font-size: 0.85rem;
-            display: none; /* Hidden by default */
+            display: none;
         }
         .status-message.visible {
             display: block;
@@ -433,39 +484,37 @@
             border: 1px solid #ef9a9a;
         }
 
-
-        /* Modal Base Styles */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
+            background-color: rgba(0, 0, 0, 0.6);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            padding: 1rem; /* Padding for small screens */
+            padding: 1rem;
         }
 
         .modal {
-            background-color: white;
-            padding: 1.5rem; /* Base padding */
+            background-color: var(--modal-bg);
+            padding: 1.5rem;
             border-radius: 12px;
-            width: 95%; /* Responsive width */
-            max-width: 500px; /* Max width */
+            width: 95%;
+            max-width: 500px;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
         }
 
         .modal h2 {
             margin-bottom: 1.5rem;
             color: var(--secondary);
-            font-size: 1.4rem; /* Adjust size */
+            font-size: 1.4rem;
         }
 
         .form-group {
-            margin-bottom: 1rem; /* Smaller margin */
+            margin-bottom: 1rem;
         }
 
         .form-group label {
@@ -476,31 +525,29 @@
             font-size: 0.9rem;
         }
 
-        .form-group input[type="number"] { /* Specificity */
+        .form-group input[type="number"] {
             width: 100%;
-            padding: 0.6rem; /* Adjust padding */
-            border: 2px solid #e9ecef;
+            padding: 0.6rem;
+            border: 2px solid var(--input-border);
             border-radius: 8px;
             font-size: 1rem;
             transition: var(--transition);
+            background-color: var(--input-bg);
         }
 
         .form-group input[type="number"]:focus {
             outline: none;
-            border-color: var(--primary);
+            border-color: var(--input-focus-border);
         }
 
-        .button-group { /* Used in modals */
+        .button-group {
             display: flex;
-            gap: 0.75rem; /* Smaller gap */
-            margin-top: 1.5rem; /* Adjust top margin */
-            flex-wrap: wrap; /* Allow wrapping */
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
         }
 
-
-        /* Episode Summary Modal */
         .episode-summary {
-             /* Inherits .modal styles via overlay, add specifics */
              max-width: 600px;
         }
 
@@ -511,14 +558,13 @@
 
         .episode-summary .stats-grid {
             display: grid;
-             /* Responsive columns: 1 on small, 2 on larger */
-            grid-template-columns: 1fr; /* Default to 1 column */
-            gap: 0.75rem; /* Smaller gap */
+             grid-template-columns: 1fr;
+            gap: 0.75rem;
         }
 
         .episode-summary .stat-item {
             background: var(--light);
-            padding: 0.75rem; /* Smaller padding */
+            padding: 0.75rem;
             border-radius: 8px;
             transition: var(--transition);
         }
@@ -529,42 +575,36 @@
         }
 
         .episode-summary .stat-label {
-            font-size: 0.8rem; /* Smaller label */
+            font-size: 0.8rem;
             color: var(--gray);
             margin-bottom: 0.2rem;
         }
 
         .episode-summary .stat-value {
-            font-size: 1.1rem; /* Smaller value */
+            font-size: 1.1rem;
             font-weight: 600;
             color: var(--secondary);
         }
 
-        /* Pulse Animation */
         @keyframes pulse {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(247, 37, 133, 0.4); }
             70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(247, 37, 133, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(247, 37, 133, 0); }
         }
 
-        /* --- Media Queries for Responsiveness --- */
-
-        /* Tablet and Larger Mobile */
         @media (min-width: 577px) {
              .episode-summary .stats-grid {
-                  grid-template-columns: repeat(2, 1fr); /* 2 columns */
+                  grid-template-columns: repeat(2, 1fr);
              }
              .header {
-                 flex-direction: row; /* Title and button side-by-side */
-                 justify-content: space-between; /* Space them out */
+                 flex-direction: row;
+                 justify-content: space-between;
              }
         }
 
-
-        /* Tablet */
         @media (max-width: 992px) {
              .dashboard {
-                  grid-template-columns: 1fr 1fr; /* 2 columns */
+                  grid-template-columns: 1fr 1fr;
                   grid-template-areas:
                        "viz controls"
                        "viz stats"
@@ -575,32 +615,36 @@
                  width: var(--elevator-size-tablet);
                  height: var(--elevator-size-tablet);
                  font-size: 0.75rem;
+                 border-radius: 5px;
              }
              .elevator-shaft { width: calc(var(--elevator-size-tablet) + 10px); }
              .floor-info { width: 100px; }
              .graph-container { height: 220px; }
+             .elevator-shaft::before, .elevator-shaft::after { width: 3px; }
+             .elevator-shaft::before { left: 5px; }
+             .elevator-shaft::after { right: 5px; }
+             .floor { border-right-width: 3px; }
         }
 
-        /* Mobile */
         @media (max-width: 576px) {
-            body { font-size: 14px; } /* Smaller base font on mobile */
+            body { font-size: 14px; }
             .container { padding: 0.5rem; }
             .header {
                  padding: 0.75rem 1rem;
-                 border-radius: 0; /* Full width */
-                 margin: -0.5rem -0.5rem 1rem -0.5rem; /* Extend to edges */
-                 flex-direction: column; /* Stack vertically again */
+                 border-radius: 0;
+                 margin: -0.5rem -0.5rem 1rem -0.5rem;
+                 flex-direction: column;
                  gap: 0.5rem;
             }
             .header h1 { font-size: 1.4rem; }
             .dashboard {
-                grid-template-columns: 1fr; /* Single column */
-                grid-template-areas: /* Define single column layout */
+                grid-template-columns: 1fr;
+                grid-template-areas:
                     "viz"
                     "controls"
                     "stats"
                     "graphs";
-                gap: 1rem; /* Smaller gap */
+                gap: 1rem;
             }
             .card { padding: 1rem; }
             .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem;}
@@ -609,16 +653,16 @@
              .elevator {
                  width: var(--elevator-size-mobile);
                  height: var(--elevator-size-mobile);
-                 font-size: 0.65rem; /* Even smaller font */
-                 border-radius: 6px;
+                 font-size: 0.65rem;
+                 border-radius: 4px;
                  gap: 1px;
              }
-             .elevator-shaft { width: calc(var(--elevator-size-mobile) + 8px); } /* Adjust shaft */
+             .elevator-shaft { width: calc(var(--elevator-size-mobile) + 8px); }
              .elevator .direction { font-size: 1em; }
              .elevator .passenger-count { font-size: 0.8em; padding: 1px 4px; }
 
             .floor-info {
-                width: 80px; /* Smaller info box */
+                width: 80px;
                 padding: 0.25rem 0.4rem;
                 font-size: 0.75rem;
             }
@@ -648,10 +692,65 @@
              .episode-summary .stat-value { font-size: 1rem; }
         }
 
+        /* Dark Mode Styles */
+        [data-theme="dark"] {
+            --body-bg: #1a1a2e;
+            --primary: #7f5af0;
+            --primary-light: #9d7fee;
+            --secondary: #c738bd;
+            --success: #2cb67d;
+            --danger: #ef4565;
+            --warning: #ffd369;
+            --light: #2e2e48;
+            --card-bg: #161625;
+            --dark: #e0e0e0;
+            --gray: #a1a1aa;
+            --text-color: #e0e0e0;
+            --text-muted: #a1a1aa;
+            --border-color: #3a3a59;
+            --shaft-bg: #1f1f38;
+            --shaft-rail-color: #44446a;
+            --elevator-bg-start: #4a4a6a;
+            --elevator-bg-mid: #3a3a5a;
+            --elevator-bg-end: #424262;
+            --elevator-border: #5a5a7a;
+            --elevator-text-color: #f0f0f0;
+            --floor-edge-color: #505070;
+            --floor-bg: #2e2e48;
+            --floor-border: #4a4a6a;
+            --floor-button-bg: #3a3a59;
+            --floor-button-hover-bg: var(--primary-light);
+            --floor-button-active-bg: var(--danger);
+            --floor-button-text: var(--text-color);
+            --floor-button-hover-text: #161625;
+            --floor-button-active-text: var(--light);
+            --modal-bg: #1f1f38;
+            --modal-overlay-bg: rgba(0, 0, 0, 0.7);
+            --input-bg: #2e2e48;
+            --input-border: #4a4a6a;
+            --chart-label-color: var(--text-muted);
+            --chart-grid-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Theme Toggle Button */
+        #themeToggle {
+            background-color: transparent;
+            border: 1px solid var(--light);
+            color: var(--light);
+            padding: 0.5rem;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: var(--transition);
+            margin-left: auto;
+        }
+
+        #themeToggle:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body>
-    <!-- Welcome Modal -->
     <div id="welcomeModal" class="modal-overlay">
         <div class="modal">
             <h2>Welcome to Multi-Elevator Simulator</h2>
@@ -674,7 +773,6 @@
         </div>
     </div>
 
-    <!-- Episode Summary Modal -->
     <div id="episodeSummaryModal" class="modal-overlay" style="display: none;">
         <div class="modal episode-summary">
             <h2>Episode Summary</h2>
@@ -731,28 +829,24 @@
         </div>
     </div>
 
-    <!-- Main Content -->
     <div class="container">
         <div class="header">
-            <h1>Multi-Elevator Sim</h1> <!-- Shorter title -->
+            <h1>Multi-Elevator Sim</h1>
             <button class="config-button" onclick="showConfigModal()">Change Config</button>
+            <button id="themeToggle" class="btn">🌙</button>
         </div>
 
         <div class="dashboard">
-            <!-- Visualization Area -->
             <div class="card viz-area">
                 <h2>Elevator System</h2>
                  <div class="building-container">
                     <div class="building">
                         <div class="floors">
-                            <!-- Floors will be dynamically added here -->
                         </div>
-                        <!-- Elevator Shafts added by JS -->
                     </div>
                  </div>
             </div>
 
-            <!-- Controls Area -->
             <div class="card controls-area">
                  <h2>Controls</h2>
                  <div class="control-panel">
@@ -792,7 +886,6 @@
                  </div>
             </div>
 
-            <!-- Stats Area -->
             <div class="card stats-area">
                 <h2>System Stats</h2>
                 <div id="stats">
@@ -800,8 +893,7 @@
                 </div>
             </div>
 
-            <!-- Graphs Area -->
-             <div class="graphs-area">
+            <div class="graphs-area">
                  <div class="graph-container">
                      <canvas id="passengersChart"></canvas>
                  </div>
@@ -827,13 +919,11 @@
         let simulationPaused = false;
         let modelLoaded = false;
 
-        // Chart data
         const maxDataPoints = 100;
         const chartData = {
             passengers: [], waiting: [], rewards: [], waitTimes: [], timestamps: []
         };
 
-        // Elements cache
         const elements = {
             numElevatorsInput: document.getElementById('numElevators'),
             numFloorsInput: document.getElementById('numFloors'),
@@ -857,10 +947,10 @@
             floorsDiv: document.querySelector('.floors'),
             welcomeModal: document.getElementById('welcomeModal'),
             episodeSummaryModal: document.getElementById('episodeSummaryModal'),
-            overrideButton: document.getElementById('overrideButton') // Added override button reference
+            overrideButton: document.getElementById('overrideButton'),
+            themeToggleBtn: document.getElementById('themeToggle')
         };
 
-        // --- Event Listeners ---
         elements.rateSlider.addEventListener('input', function() {
             elements.rateValue.textContent = this.value;
             throttledUpdate(updatePassengerRate, this.value);
@@ -874,7 +964,6 @@
             throttledUpdate(updateMaxSteps, this.value);
         });
 
-        // Throttling function
         let throttleTimer = {};
         function throttledUpdate(func, value) {
             const funcName = func.name;
@@ -884,24 +973,22 @@
             throttleTimer[funcName] = setTimeout(() => {
                 func(value);
                 throttleTimer[funcName] = null;
-            }, 150); // 150ms throttle
+            }, 150);
         }
 
-        // --- SocketIO Handlers ---
         socket.on('connect', () => {
             console.log('Connected to server');
             showStatus('Connected to server', false, elements.statusMessage);
-            // Re-enable config inputs if needed after reconnect?
         });
 
         socket.on('disconnect', () => {
              console.log('Disconnected from server');
              showStatus('Disconnected. Attempting to reconnect...', true, elements.statusMessage);
-             setSimulationState(false); // Mark simulation as stopped on disconnect
+             setSimulationState(false);
         });
 
         socket.on('stats_update', (data) => {
-             if (!simulationRunning || simulationPaused) return; // Don't update if paused or stopped
+             if (!simulationRunning || simulationPaused) return;
 
              updateVisualization(data);
              updateStatsDisplay(data);
@@ -910,33 +997,24 @@
 
         socket.on('episode_summary', (data) => {
             console.log("Episode Summary Received:", data);
-            setSimulationState(false); // Simulation ended
+            setSimulationState(false);
             showEpisodeSummary(data);
         });
 
-
-        // --- UI Update Functions ---
-
         function updateVisualization(data) {
-            // Get current floor height dynamically - CRITICAL for responsiveness
             const floorElement = elements.floorsDiv.querySelector('.floor');
-            const floorHeight = floorElement ? floorElement.offsetHeight : 60; // Use offsetHeight, provide fallback
+            const floorHeight = floorElement ? floorElement.offsetHeight : 60;
 
-            // Update elevator positions
             data.elevator_positions.forEach((position, index) => {
                 const elevator = document.getElementById(`elevator-${index}`);
                 if (elevator) {
-                    // Calculate bottom offset based on floor index and height
-                    // The visual "bottom" of the elevator should align with the bottom of the floor's container
                     const bottomPosition = position * floorHeight;
                     elevator.style.transform = `translateY(-${bottomPosition}px)`;
 
-                    // Update passenger count
                     const passengerCount = data.elevator_passengers[index];
                     const passengerCountElement = elevator.querySelector('.passenger-count');
                     if (passengerCountElement) passengerCountElement.textContent = passengerCount;
 
-                    // Update direction indicator
                     const directionIndicator = elevator.querySelector('.direction');
                     if (directionIndicator) {
                         const direction = data.elevator_directions[index];
@@ -945,12 +1023,11 @@
                 }
             });
 
-            // Update waiting passengers and floor buttons
             const numFloors = elements.floorsDiv.children.length;
             for (let floor = 0; floor < numFloors; floor++) {
                  const waitingCountElement = document.getElementById(`waiting-${floor}`);
-                 const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floor}"] .floor-button`); // Use data attribute
-                 const count = data.waiting_passengers[floor] || 0; // Handle potential index out of bounds if config changed mid-flight
+                 const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floor}"] .floor-button`);
+                 const count = data.waiting_passengers[floor] || 0;
 
                  if (waitingCountElement) {
                      waitingCountElement.textContent = `Waiting: ${count}`;
@@ -960,7 +1037,6 @@
                  }
             }
         }
-
 
         function updateStatsDisplay(data) {
             const totalPassengersInElevators = data.elevator_passengers.reduce((a, b) => a + b, 0);
@@ -986,7 +1062,6 @@
                 `).join('')}
             `;
 
-            // Update sliders only if needed (avoiding jittery updates)
             updateSliderIfNeeded(elements.rateSlider, elements.rateValue, data.passenger_rate);
             updateSliderIfNeeded(elements.speedSlider, elements.speedValue, data.simulation_speed);
             updateSliderIfNeeded(elements.maxStepsSlider, elements.maxStepsValue, data.max_steps);
@@ -1002,20 +1077,18 @@
         }
 
         function updateCharts(data) {
-            if (!charts.passengers || !data) return; // Ensure charts & data exist
+            if (!charts.passengers || !data) return;
 
             const timestamp = new Date().toLocaleTimeString();
             const totalPassengers = data.elevator_passengers.reduce((a, b) => a + b, 0);
             const totalWaiting = data.waiting_passengers.reduce((a, b) => a + b, 0);
 
-            // Add data
             chartData.timestamps.push(timestamp);
             chartData.passengers.push(totalPassengers);
             chartData.waiting.push(totalWaiting);
             chartData.rewards.push(data.reward);
-            chartData.waitTimes.push(data.avg_wait_time); // Use avg_wait_time from stats
+            chartData.waitTimes.push(data.avg_wait_time);
 
-            // Limit data points
             if (chartData.timestamps.length > maxDataPoints) {
                 chartData.timestamps.shift();
                 chartData.passengers.shift();
@@ -1024,7 +1097,6 @@
                 chartData.waitTimes.shift();
             }
 
-            // Update charts without full animation for performance
             charts.passengers.data.labels = chartData.timestamps;
             charts.passengers.data.datasets[0].data = chartData.passengers;
             charts.passengers.data.datasets[1].data = chartData.waiting;
@@ -1067,10 +1139,9 @@
             if (!element) return;
             element.className = 'status-message ' + (isError ? 'error' : 'success') + ' visible';
             element.textContent = message;
-            // Optional: Hide after a few seconds if it's not an error
             if (!isError) {
                 setTimeout(() => {
-                     if (element.textContent === message) { // Hide only if message hasn't changed
+                     if (element.textContent === message) {
                          element.classList.remove('visible');
                      }
                 }, 4000);
@@ -1090,51 +1161,42 @@
             elements.pauseButton.disabled = !isRunning;
             elements.resetBtn.disabled = isRunning;
 
-            // Disable config inputs/sliders during simulation
             elements.numElevatorsInput.disabled = isRunning || modelLoaded;
             elements.numFloorsInput.disabled = isRunning || modelLoaded;
             elements.loadModelBtn.disabled = isRunning || !elements.modelFileInput.files || elements.modelFileInput.files.length === 0;
             elements.modelFileInput.disabled = isRunning;
-             // Keep sliders enabled to allow real-time changes
-            // elements.rateSlider.disabled = isRunning;
-            // elements.speedSlider.disabled = isRunning;
-            // elements.maxStepsSlider.disabled = isRunning;
 
             if (isRunning) {
                 elements.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
             } else {
                 elements.pauseButton.textContent = 'Pause';
-                elements.pauseButton.disabled = true; // Disable pause when stopped
-                simulationPaused = false; // Ensure paused state is reset when stopped
+                elements.pauseButton.disabled = true;
+                simulationPaused = false;
             }
         }
 
-
-        // --- API Call Functions ---
         async function fetchApi(endpoint, options = {}) {
             try {
                 const response = await fetch(endpoint, options);
                 if (!response.ok) {
-                    // Try to parse error message from server response
                     let errorMsg = `HTTP error! status: ${response.status}`;
                     try {
                         const errorData = await response.json();
                         errorMsg = errorData.message || errorMsg;
                          if (errorData.expected_configuration) {
-                              // Specific handling for configuration mismatch error
-                              elements.overrideButton.style.display = 'inline-flex'; // Show override button
+                              elements.overrideButton.style.display = 'inline-flex';
                               errorMsg += ` Expected ${errorData.expected_configuration.num_floors} floors, ${errorData.expected_configuration.num_elevators} elevators. Click Override to force.`;
                          } else {
-                              elements.overrideButton.style.display = 'none'; // Hide override button otherwise
+                              elements.overrideButton.style.display = 'none';
                          }
 
-                    } catch (e) { /* Ignore if response is not JSON */ }
+                    } catch (e) { }
                     throw new Error(errorMsg);
                 }
                 return await response.json();
             } catch (error) {
                 console.error(`Error fetching ${endpoint}:`, error);
-                throw error; // Re-throw to be caught by caller
+                throw error;
             }
         }
 
@@ -1180,7 +1242,7 @@
                 showStatus('Please select a model file first', true);
                 return;
             }
-            elements.loadModelBtn.disabled = true; // Disable while loading
+            elements.loadModelBtn.disabled = true;
             elements.loadedModelInfo.textContent = 'Loading...';
 
             const formData = new FormData();
@@ -1190,33 +1252,29 @@
                 const result = await fetchApi('/load_model', { method: 'POST', body: formData });
                 showStatus(result.message);
                 modelLoaded = true;
-                // Update config inputs to reflect model requirements and disable them
                 elements.numFloorsInput.value = result.num_floors;
                 elements.numElevatorsInput.value = result.num_elevators;
                 elements.numFloorsInput.disabled = true;
                 elements.numElevatorsInput.disabled = true;
                 elements.loadedModelInfo.textContent = `Loaded (${result.num_floors}F/${result.num_elevators}E)`;
-                // Re-initialize visualization for the new configuration
                 initializeVisualization(result.num_floors, result.num_elevators);
-                // Reset simulation state and charts
                 resetCharts();
                 setSimulationState(false);
-                elements.startBtn.disabled = false; // Enable start button after successful load
+                elements.startBtn.disabled = false;
             } catch (error) {
                 showStatus(`Error loading model: ${error.message}`, true);
                  elements.loadedModelInfo.textContent = '';
                  modelLoaded = false;
-                 elements.numFloorsInput.disabled = false; // Re-enable config
+                 elements.numFloorsInput.disabled = false;
                  elements.numElevatorsInput.disabled = false;
-                 elements.loadModelBtn.disabled = false; // Re-enable button on failure
+                 elements.loadModelBtn.disabled = false;
             }
         }
 
         async function startSimulation() {
             console.log('Attempting to start simulation...');
-            elements.startBtn.disabled = true; // Disable button immediately
+            elements.startBtn.disabled = true;
 
-             // Ensure latest slider values are sent before starting
              await Promise.all([
                  updatePassengerRate(elements.rateSlider.value),
                  updateSimulationSpeed(elements.speedSlider.value),
@@ -1224,15 +1282,14 @@
              ]);
 
             try {
-                // Configuration is assumed set (either initially or by model load)
                 const result = await fetchApi('/start_simulation', { method: 'POST' });
                 console.log('Simulation start response:', result);
                 setSimulationState(true);
-                resetCharts(); // Clear charts for new simulation
+                resetCharts();
                 showStatus('Simulation started');
             } catch (error) {
                 showStatus(`Error starting simulation: ${error.message}`, true);
-                elements.startBtn.disabled = false; // Re-enable if start failed
+                elements.startBtn.disabled = false;
             }
         }
 
@@ -1245,14 +1302,13 @@
                 showStatus('Simulation stopped');
             } catch (error) {
                 showStatus(`Error stopping simulation: ${error.message}`, true);
-                // State might be inconsistent, but try to reflect stopped state
                 setSimulationState(false);
             }
         }
 
         async function togglePause() {
             const isPausing = !simulationPaused;
-            elements.pauseButton.disabled = true; // Disable while processing
+            elements.pauseButton.disabled = true;
             try {
                 const result = await fetchApi('/pause_simulation', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1264,59 +1320,49 @@
             } catch (error) {
                 showStatus(`Error toggling pause: ${error.message}`, true);
             } finally {
-                elements.pauseButton.disabled = !simulationRunning; // Re-enable only if running
+                elements.pauseButton.disabled = !simulationRunning;
             }
         }
 
         async function resetSimulation() {
              console.log('Resetting simulation...');
              try {
-                 // Stop simulation first if running
                  if (simulationRunning) {
                      await stopSimulation();
                  }
-                 // Call reset endpoint
                  const result = await fetchApi('/reset_simulation', { method: 'POST' });
                  showStatus('Simulation reset');
 
-                 // Reset state variables
                  modelLoaded = false;
                  setSimulationState(false);
                  resetCharts();
 
-                 // Clear model info and re-enable file input/load button
-                 elements.modelFileInput.value = ''; // Clear selected file
+                 elements.modelFileInput.value = '';
                  elements.loadModelBtn.disabled = true;
                  elements.loadedModelInfo.textContent = '';
                  elements.modelFileInput.disabled = false;
 
-                 // Show welcome modal again to potentially reconfigure
                  showWelcomeModal();
-                 elements.startBtn.disabled = true; // Keep start disabled until config is confirmed
+                 elements.startBtn.disabled = true;
 
              } catch (error) {
                  showStatus(`Error resetting simulation: ${error.message}`, true);
              }
          }
 
-
         async function requestElevator(floorNumber) {
             console.log(`Requesting elevator at floor ${floorNumber}`);
             try {
-                 // Find the button and add a temporary 'requesting' state?
                  const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floorNumber}"] .floor-button`);
-                 if (button) button.disabled = true; // Prevent multi-clicks
+                 if (button) button.disabled = true;
 
                 const result = await fetchApi('/request_elevator', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ floor: floorNumber })
                 });
-                 // Status update comes via 'stats_update' event turning button active
-                 // showStatus(`Elevator requested at floor ${floorNumber}`);
             } catch (error) {
                 showStatus(`Request error: ${error.message}`, true);
             } finally {
-                 // Re-enable button after a short delay
                  setTimeout(() => {
                      const button = elements.floorsDiv.querySelector(`.floor[data-floor-index="${floorNumber}"] .floor-button`);
                      if (button) button.disabled = false;
@@ -1327,7 +1373,7 @@
          async function updateConfiguration(override = false) {
              const numElevators = parseInt(elements.numElevatorsInput.value);
              const numFloors = parseInt(elements.numFloorsInput.value);
-             elements.overrideButton.style.display = 'none'; // Hide override button initially
+             elements.overrideButton.style.display = 'none';
 
              console.log(`Updating config - E: ${numElevators}, F: ${numFloors}, Override: ${override}`);
              if (isNaN(numElevators) || numElevators < 1 || numElevators > 10 ||
@@ -1343,47 +1389,38 @@
                      body: JSON.stringify({
                          num_elevators: numElevators,
                          num_floors: numFloors,
-                         override: override // Pass override flag
+                         override: override
                      })
                  });
                  console.log('Config update successful:', result);
                  hideWelcomeModal();
                  showStatus('Configuration updated. Ready to start.', false, elements.statusMessage);
                  initializeVisualization(result.num_floors, result.num_elevators);
-                 resetCharts(); // Reset charts on config change
-                 setSimulationState(false); // Ensure simulation is marked as stopped
-                 elements.startBtn.disabled = false; // Enable start button
+                 resetCharts();
+                 setSimulationState(false);
+                 elements.startBtn.disabled = false;
                  return true;
              } catch (error) {
-                 // Error message is shown by fetchApi, including override info if applicable
                  showStatus(error.message, true, elements.configStatusMessage);
                  return false;
              }
          }
 
-
-        // --- Modal & Initialization ---
         function showWelcomeModal() {
             elements.welcomeModal.style.display = 'flex';
-            elements.configStatusMessage.textContent = ''; // Clear previous messages
+            elements.configStatusMessage.textContent = '';
             elements.configStatusMessage.classList.remove('visible', 'error', 'success');
-            elements.overrideButton.style.display = 'none'; // Hide override initially
+            elements.overrideButton.style.display = 'none';
 
-            // Reset inputs to defaults or current known state
-             // elements.numElevatorsInput.value = 3; // Or get from server if possible?
-             // elements.numFloorsInput.value = 10;
-
-             // Enable/disable based on model state
-             elements.numElevatorsInput.disabled = modelLoaded;
-             elements.numFloorsInput.disabled = modelLoaded;
+            elements.numElevatorsInput.disabled = modelLoaded;
+            elements.numFloorsInput.disabled = modelLoaded;
         }
         function hideWelcomeModal() {
             elements.welcomeModal.style.display = 'none';
         }
         function showConfigModal() {
-            // If running, stop first (optional, could just prevent changes)
             if (simulationRunning) {
-                stopSimulation(); // Consider if this is desired behavior
+                stopSimulation();
             }
             showWelcomeModal();
         }
@@ -1406,47 +1443,41 @@
 
         function startNewEpisode() {
             elements.episodeSummaryModal.style.display = 'none';
-            // Configuration is already set, just start simulation
             startSimulation();
         }
-
 
         function initializeVisualization(numFloors, numElevators) {
             console.log(`Initializing visualization - F: ${numFloors}, E: ${numElevators}`);
             try {
-                // Clear existing content
                 elements.floorsDiv.innerHTML = '';
                 const existingShafts = elements.buildingDiv.querySelectorAll('.elevator-shaft');
                 existingShafts.forEach(shaft => shaft.remove());
 
-                // Create floors
                 for (let i = 0; i < numFloors; i++) {
                     const floor = document.createElement('div');
                     floor.className = 'floor';
-                    floor.dataset.floorIndex = i; // Add index for easier selection
+                    floor.dataset.floorIndex = i;
                     floor.innerHTML = `
                         <div class="floor-info">
                             <span class="floor-number">Floor ${i}</span>
                             <span class="waiting-count" id="waiting-${i}">Waiting: 0</span>
                         </div>
                         <div class="floor-button-container">
-                            <button class="floor-button" onclick="requestElevator(${i})">▲</button> <!-- Use data-floor? -->
+                            <button class="floor-button" onclick="requestElevator(${i})">▲</button>
                         </div>
                     `;
                     elements.floorsDiv.appendChild(floor);
                 }
 
-                // Create elevator shafts and elevators
-                const elevatorSizeDesktop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--elevator-size-desktop')); // Get from CSS Var
-                const shaftWidth = elevatorSizeDesktop + 10; // Approx width + margin
+                const elevatorSizeDesktop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--elevator-size-desktop'));
+                const shaftWidth = elevatorSizeDesktop + 10;
                 const totalShaftSpace = shaftWidth * numElevators;
-                elements.buildingDiv.style.paddingRight = `${totalShaftSpace + 10}px`; // Add padding for shafts + a little extra
+                elements.buildingDiv.style.paddingRight = `${totalShaftSpace + 10}px`;
 
                 for (let i = 0; i < numElevators; i++) {
                     const shaft = document.createElement('div');
                     shaft.className = 'elevator-shaft';
-                     // Position shafts from right to left
-                     shaft.style.right = `${i * shaftWidth + 5}px`; // Stagger shafts from the right edge
+                    shaft.style.right = `${(numElevators - 1 - i) * shaftWidth + 5}px`;
 
                     const elevator = document.createElement('div');
                     elevator.className = 'elevator';
@@ -1457,13 +1488,8 @@
                         <span class="passenger-count">0</span>
                     `;
                     shaft.appendChild(elevator);
-                    elements.buildingDiv.appendChild(shaft); // Append shaft to building
+                    elements.buildingDiv.appendChild(shaft);
                 }
-
-                 // Adjust building height based on number of floors (optional, could rely on CSS min-height)
-                 // const floorElement = elements.floorsDiv.querySelector('.floor');
-                 // const floorHeight = floorElement ? floorElement.offsetHeight : 60;
-                 // elements.buildingDiv.style.minHeight = `${numFloors * floorHeight}px`; // Set min-height
 
                 console.log('Visualization initialized');
 
@@ -1477,7 +1503,7 @@
             const chartOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: false, // Disable animation for performance
+                animation: false,
                 scales: { y: { beginAtZero: true } },
                 plugins: { legend: { display: true } }
             };
@@ -1507,12 +1533,66 @@
             console.log("Charts initialized");
         }
 
-        // Initial setup on page load
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            elements.themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+            updateChartTheme(theme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        }
+
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let initialTheme = 'light';
+
+            if (savedTheme) {
+                initialTheme = savedTheme;
+            } else if (prefersDark) {
+                initialTheme = 'dark';
+            }
+            applyTheme(initialTheme);
+
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                if (!localStorage.getItem('theme')) {
+                    applyTheme(event.matches ? 'dark' : 'light');
+                }
+            });
+        }
+
+        function updateChartTheme(theme) {
+            const isDark = theme === 'dark';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            const labelColor = isDark ? '#a1a1aa' : '#666';
+            const titleColor = isDark ? '#e0e0e0' : '#2b2d42';
+
+            Object.values(charts).forEach(chart => {
+                if (chart) {
+                    chart.options.scales.x.ticks.color = labelColor;
+                    chart.options.scales.x.grid.color = gridColor;
+                    chart.options.scales.y.ticks.color = labelColor;
+                    chart.options.scales.y.grid.color = gridColor;
+                    if(chart.options.scales.y.title) chart.options.scales.y.title.color = labelColor;
+                    chart.options.plugins.legend.labels.color = labelColor;
+                    chart.options.plugins.title.color = titleColor;
+                    chart.update('none');
+                }
+            });
+        }
+
+        elements.themeToggleBtn.addEventListener('click', toggleTheme);
+
         document.addEventListener('DOMContentLoaded', () => {
             initializeCharts();
-            showWelcomeModal(); // Start with configuration
-            setSimulationState(false); // Initial button states
-             elements.startBtn.disabled = true; // Keep start disabled until config confirmed
+            initializeTheme();
+            showWelcomeModal();
+            setSimulationState(false);
+            elements.startBtn.disabled = true;
         });
 
     </script>
