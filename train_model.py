@@ -42,7 +42,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------
 
     # --- Define the desired total timesteps ---
-    total_training_steps = 1_000_000  # Set to 3 million
+    total_training_steps = 5_000_000
     # ------------------------------------------
 
     # Train with custom policy and total timesteps

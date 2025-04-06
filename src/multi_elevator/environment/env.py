@@ -213,7 +213,7 @@ class MultiElevatorEnv(gym.Env):
         - Pickup rewards (timely passenger pickup)
         - Delivery rewards (efficient passenger delivery)
         - Button response rewards (responding to call buttons)
-        - Time penalties (for long waiting times)
+        - Time penalties (applied directly, not weighted)
         
         Returns:
             float: The total reward for this step
@@ -375,7 +375,7 @@ class MultiElevatorEnv(gym.Env):
     def _calculate_delivery_reward(self) -> float:
         """
         Calculate reward for delivering passengers to their destinations.
-        
+
         The reward includes:
         - Base reward for successful delivery
         - Time efficiency bonus
@@ -386,22 +386,35 @@ class MultiElevatorEnv(gym.Env):
         """
         delivery_reward = 0.0
         for passenger_id, data in self.waiting_time.items():
-            if data["travel_end"] == self.current_step:
+            # Check if passenger exists and was delivered this step
+            if data["travel_end"] == self.current_step and passenger_id in self.waiting_time:
+                # Ensure passenger data is valid before proceeding
+                if data["wait_end"] is None or data["wait_start"] is None or \
+                   data["destination_floor"] is None or data["start_floor"] is None:
+                    logger.warning(f"Incomplete data for delivered passenger {passenger_id}. Skipping reward calc.")
+                    continue  # Skip this passenger if data is incomplete
+
                 # Base reward for successful delivery
-                delivery_reward += 15.0
-                
+                delivery_reward += DELIVERY_BASE_REWARD
+
                 # Calculate time-based components
                 wait_time = data["wait_end"] - data["wait_start"]
                 travel_time = data["travel_end"] - data["wait_end"]
+
+                # Handle potential edge case where travel_time might be zero or negative
+                if travel_time <= 0:
+                    travel_time = 1  # Assign a minimum travel time if happens in same step
+
                 floor_distance = abs(data["destination_floor"] - data["start_floor"])
+                # Ensure minimum expected time even for same floor
                 expected_travel_time = floor_distance + 1
-                
+
                 # Calculate efficiency bonus
                 time_efficiency = max(0, expected_travel_time - travel_time)
                 time_bonus = (
-                    10.0 * (0.9 ** max(0, travel_time - expected_travel_time)) +
-                    5.0 * (0.9 ** wait_time) +
-                    0.5 * time_efficiency
+                    DELIVERY_BONUS_SPEED * (0.9 ** max(0, travel_time - expected_travel_time)) +
+                    DELIVERY_BONUS_WAIT * (0.9 ** wait_time) +
+                    DELIVERY_BONUS_EFFICIENCY * time_efficiency
                 )
                 delivery_reward += time_bonus
 
