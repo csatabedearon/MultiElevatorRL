@@ -1,113 +1,152 @@
-# Multi-Elevator System with Reinforcement Learning
+# Multi-Elevator RL: An Intelligent Elevator Control System
 
-A sophisticated multi-elevator system that uses reinforcement learning to optimize elevator scheduling and passenger transportation.
+[![Python Version](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Framework](https://img.shields.io/badge/Framework-Stable--Baselines3-red)](https://stable-baselines3.readthedocs.io/)
+[![Environment](https://img.shields.io/badge/Environment-Gymnasium-green)](https://gymnasium.farama.org/)
+
+This project presents a sophisticated multi-elevator control system powered by Deep Reinforcement Learning. The core of the project is a custom `Gymnasium` environment that simulates multiple elevators servicing a configurable number of floors. An agent, trained using the Proximal Policy Optimization (PPO) algorithm from `Stable-Baselines3`, learns to efficiently manage elevator movements to minimize passenger waiting times.
+
+The project features a rich, interactive web interface built with Flask and Socket.IO, allowing for real-time visualization, dynamic configuration, and interaction with the simulation.
+
+## Key Features
+
+-   **Advanced RL Agent:** Utilizes Stable-Baselines3 (PPO) to train a robust agent for a complex, multi-agent control problem.
+-   **Custom Gymnasium Environment:** A detailed and configurable environment (`MultiElevator-v0`) simulating elevator dynamics, passenger arrivals, and internal/external calls.
+-   **Sophisticated Reward Engineering:** A carefully designed reward function that balances multiple objectives: passenger wait time, travel efficiency, and strategic elevator positioning. See our [Reward Experiments Log](./docs/reward_experiments.md) for details on the iterative design process.
+-   **Interactive Web UI:** A real-time dashboard to visualize the simulation, monitor key performance metrics, and dynamically adjust parameters.
+    -   Live elevator and passenger tracking.
+    -   Real-time charts for rewards, passenger counts, and wait times.
+    -   On-the-fly configuration of simulation speed, passenger arrival rate, and more.
+    -   Ability to load and test different trained models.
+-   **TensorBoard Integration:** Comprehensive logging of training metrics for easy monitoring and analysis.
+-   **Packaged & Extensible:** The project is structured as an installable Python package, making it easy to set up and extend.
+
 
 ## Project Structure
 
-```
-multi_elevator/
-├── src/
-│   └── multi_elevator/
-│       ├── environment/     # Environment implementation
-│       ├── models/         # Model definitions and architectures
-│       ├── training/       # Training scripts and utilities
-│       └── utils/          # Utility functions and web interface
-├── tests/                 # Test files
-├── configs/              # Configuration files
-├── models/
-│   ├── best_models/      # Best performing model checkpoints
-│   └── checkpoints/      # Training checkpoints
-├── docs/                 # Documentation
-├── logs/                 # Training logs and tensorboard data
-├── requirements.txt      # Project dependencies
-└── setup.py             # Package installation configuration
-```
+The repository is organized to separate the core logic, configuration, training scripts, and outputs.
 
-## Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/csatabedearon/MultiElevatorRL.git
-cd MultiElevatorRL
 ```
-
-2. Create a virtual environment (recommended):
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+├── MultiElevatorRL/            # Main project directory
+├── README.md                   # This file
+├── requirements.txt            # Core dependencies for the web app
+├── setup.py                    # Makes the project an installable package
+├── train_model.py              # High-level script to start model training
+│
+├── configs/
+│   └── default_config.yaml     # Default parameters for the environment and training
+│
+├── docs/
+│   └── reward_experiments.md   # Log of reward function designs and results
+│
+├── logs/                       # Output logs from training runs
+│   └── tensorboard/            # Data for TensorBoard visualization
+│
+├── models/                     # Saved model files
+│   ├── best_models/            # Best performing models from evaluation callbacks
+│   └── checkpoints/            # Intermediate training checkpoints
+│
+└── src/
+    └── multi_elevator/         # The main Python package
+        ├── environment/        # The Gymnasium environment implementation (env.py)
+        ├── config/             # Python-based configuration files
+        ├── train.py            # The detailed training and evaluation logic
+        └── utils/              # Utilities, including the Flask web application
 ```
 
-3. Install the package:
-```bash
-pip install -e .
-```
+## Installation & Setup
 
-## Environment Setup
+### Prerequisites
 
-### System Requirements
-- Python 3.8 or higher
-- CUDA-capable GPU (recommended for training)
-- At least 8GB RAM
-- 20GB free disk space
-- Visual C++ Redistributable (download from: https://aka.ms/vs/17/release/vc_redist.x64.exe)
+-   Python 3.8 or higher
+-   (Recommended) A CUDA-capable GPU for significantly faster training.
+-   (Windows) Visual C++ Redistributable. [Download here](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
-### Dependencies
-The project uses several key libraries:
-- PyTorch for deep learning
-- Gymnasium for RL environment
-- Stable-Baselines3 for RL algorithms
-- Flask for web interface
-- NumPy and Pandas for data handling
-- Matplotlib for visualization
+### Steps
 
-All dependencies are listed in `requirements.txt` and will be installed automatically during setup.
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/MultiElevatorRL.git
+    cd MultiElevatorRL
+    ```
 
-### Configuration
-The project uses configuration files in the `configs/` directory:
-- `env_config.yaml`: Environment parameters (number of elevators, floors, etc.)
-- `model_config.yaml`: Model architecture and hyperparameters
-- `training_config.yaml`: Training settings and optimization parameters
+2.  **Create and activate a virtual environment:**
+    -   **Windows:**
+        ```bash
+        python -m venv venv
+        .\venv\Scripts\activate
+        ```
+    -   **macOS / Linux:**
+        ```bash
+        python3 -m venv venv
+        source venv/bin/activate
+        ```
 
-You can modify these files to customize the system behavior.
+3.  **Install the project as an editable package:**
+    This command uses `setup.py` to install all necessary dependencies, including the development tools.
+    ```bash
+    pip install -e .
+    ```
 
 ## Usage
 
-### Training
+### 1. Training a New Model
 
-To train a new model:
+To start training a new agent, run the top-level training script. This script uses the parameters defined in `src/multi_elevator/config/training_config.py` but can be easily modified.
+
 ```bash
-python -m multi_elevator.training.train
+python train_model.py
 ```
 
-Training progress can be monitored using TensorBoard:
+-   Models will be saved in the `models/` directory.
+-   Logs will be generated in the `logs/` directory.
+
+To monitor the training progress in real-time, launch TensorBoard:
+
 ```bash
-tensorboard --logdir ppo_multi_elevator_tensorboard
+tensorboard --logdir logs/tensorboard
 ```
 
-### Testing
+Navigate to `http://localhost:6006` in your browser.
 
-To test a trained model:
-```bash
-python -m multi_elevator.training.test
-```
+### 2. Running the Interactive Web Interface
 
-### Web Interface
+Launch the Flask web application to see the environment in action.
 
-To run the web interface:
 ```bash
 python -m multi_elevator.utils.web_app
 ```
 
-The web interface will be available at `http://localhost:5000`
+Navigate to **`http://127.0.0.1:5000`** in your browser.
 
-## Development
+From the web UI, you can:
+-   Start/stop/pause the simulation.
+-   Adjust parameters like passenger arrival rate and simulation speed.
+-   Manually request an elevator by clicking the call button on any floor.
+-   Load a pre-trained model (`.zip` file from the `models/` folder) to see how it performs compared to random actions.
 
-- The project uses Python 3.8 or higher
-- Dependencies are managed through `requirements.txt`
-- Code follows PEP 8 style guidelines
-- Tests should be written for new features
-- Use `pytest` to run the test suite
+### 3. Configuration
 
-## License
+The project's behavior can be customized via configuration files:
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+-   **`configs/default_config.yaml`**: A general-purpose YAML file for high-level settings.
+-   **`src/multi_elevator/config/training_config.py`**: The primary configuration for training, defining hyperparameters, environment settings (floors, elevators), and evaluation frequency.
+
+Modify these files to experiment with different building layouts, traffic patterns, or agent architectures.
+
+## Reward Engineering
+
+The effectiveness of the RL agent is highly dependent on the reward function. We have experimented with numerous reward structures to find a balance between minimizing passenger wait times and optimizing elevator movement.
+
+Our journey and the results of various approaches are documented in [**Reward Function Experiments**](./docs/reward_experiments.md). This is a great place to understand the core logic that drives the agent's decision-making process.
+
+## Contributing
+
+Contributions are welcome! If you'd like to help improve the project, please feel free to fork the repository and submit a pull request.
+
+For local development, install the project with the `dev` extras:
+```bash
+pip install -e .[dev]
+```
+This will install tools like `pytest`, `black`, `isort`, and `flake8` for testing and code formatting.
