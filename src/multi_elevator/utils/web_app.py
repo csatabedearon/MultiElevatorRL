@@ -50,6 +50,11 @@ using_model = False
 num_elevators = 3  # Default number of elevators
 num_floors = 10    # Default number of floors
 
+# --- NEW: Variables for scenario feature ---
+passenger_scenario = None # To store the list of passenger arrivals
+scenario_mode_active = False # Flag to indicate if a scenario is loaded
+# -----------------------------------------
+
 def adjust_environment_for_model() -> None:
     """
     Adjust the environment configuration to match the model's expected observation space.
@@ -76,13 +81,27 @@ def adjust_environment_for_model() -> None:
     except Exception as e:
         logger.exception("Error in adjusting environment for model: %s", e)
 
+# --- UPDATED: To handle scenario logic ---
 def init_environment() -> None:
-    global env
+    global env, passenger_scenario, scenario_mode_active
     with state_lock:
-        logger.debug("Initializing environment with %d elevators and %d floors", num_elevators, num_floors)
-        env = MultiElevatorEnv(render_mode=None, max_steps=max_simulation_steps,
-                               passenger_rate=0.1, num_elevators=num_elevators, num_floors=num_floors)
+        logger.debug(
+            "Initializing environment with %d elevators, %d floors. Scenario mode: %s",
+            num_elevators, num_floors, scenario_mode_active
+        )
+        # Pass the scenario to the environment if one is active
+        current_scenario = passenger_scenario if scenario_mode_active else None
+
+        env = MultiElevatorEnv(
+            render_mode=None,
+            max_steps=max_simulation_steps,
+            passenger_rate=0.1,  # This will be ignored if a scenario is passed
+            num_elevators=num_elevators,
+            num_floors=num_floors,
+            scenario=current_scenario
+        )
         env.reset()
+# --------------------------------------
 
 @app.route('/update_configuration', methods=['POST'])
 def update_configuration():
@@ -98,11 +117,11 @@ def update_configuration():
         if not data:
             logger.error("No JSON data provided")
             return jsonify({'status': 'error', 'message': 'No configuration data provided'})
-        
+
         new_elevators = int(data.get('num_elevators', 3))
         new_floors = int(data.get('num_floors', 10))
         override = data.get('override', False)
-        
+
         # If using a model, check the expected observation shape
         if using_model and model is not None:
             expected_shape = model.policy.observation_space.spaces['elevator_buttons'].shape  # e.g. (5, 3)
@@ -123,7 +142,7 @@ def update_configuration():
                 })
             elif override:
                 logger.info("Override flag received. Proceeding with new configuration (%d floors, %d elevators).", new_floors, new_elevators)
-        
+
         # Validate input if no model is forcing a configuration
         if new_elevators < 1 or new_elevators > 10:
             logger.error("Invalid elevator count: %d", new_elevators)
@@ -131,21 +150,21 @@ def update_configuration():
         if new_floors < 2 or new_floors > 20:
             logger.error("Invalid floor count: %d", new_floors)
             return jsonify({'status': 'error', 'message': 'Number of floors must be between 2 and 20'})
-            
+
         num_elevators = new_elevators
         num_floors = new_floors
         logger.debug("Configuration updated: Elevators=%d, Floors=%d", num_elevators, num_floors)
-        
+
         if simulation_active:
             logger.debug("Stopping active simulation for reconfiguration")
             simulation_active = False
             if simulation_thread:
                 simulation_thread.join(timeout=2)
-        
+
         logger.debug("Reinitializing environment with new configuration")
         init_environment()
         logger.debug("Environment reinitialized successfully")
-        
+
         return jsonify({'status': 'success', 'num_elevators': num_elevators, 'num_floors': num_floors})
     except ValueError as ve:
         logger.exception("Value error in configuration update")
@@ -208,8 +227,8 @@ def pause_simulation():
         return jsonify({'status': 'error', 'message': str(e)})
 
 def simulation_thread_function() -> None:
-    global env, simulation_active, simulation_paused, simulation_speed, max_simulation_steps, using_model, model
-    
+    global env, simulation_active, simulation_paused, simulation_speed, max_simulation_steps, using_model, model, scenario_mode_active
+
     # Initialize episode statistics
     episode_stats = {
         'total_reward': 0,
@@ -221,7 +240,7 @@ def simulation_thread_function() -> None:
         'avg_passengers_per_step': 0,
         'total_passengers_generated': 0
     }
-    
+
     while simulation_active and env.current_step < max_simulation_steps:
         if simulation_paused:
             time.sleep(0.1)
@@ -268,6 +287,7 @@ def simulation_thread_function() -> None:
         avg_wait_time = total_wait_time / completed_passengers if completed_passengers > 0 else 0
         episode_stats['avg_passengers_per_step'] = len(env.waiting_time) / (env.current_step + 1)
 
+        # --- UPDATED: To send scenario status to frontend ---
         socketio.emit('stats_update', {
             'elevator_positions': env.elevator_positions.tolist(),
             'elevator_directions': env.elevator_directions.tolist(),
@@ -279,24 +299,26 @@ def simulation_thread_function() -> None:
             'passenger_rate': env.passenger_rate,
             'simulation_speed': simulation_speed,
             'using_model': using_model,
-            'avg_wait_time': avg_wait_time
+            'avg_wait_time': avg_wait_time,
+            'scenario_mode': scenario_mode_active # Add this line
         })
+        # ----------------------------------------------------
 
         if terminated or truncated or env.current_step == max_simulation_steps - 1:
             # Calculate final statistics
             if episode_stats['min_waiting_time'] == float('inf'):
                 episode_stats['min_waiting_time'] = 0
-                
-            avg_waiting_time = (episode_stats['total_waiting_time'] / 
+
+            avg_waiting_time = (episode_stats['total_waiting_time'] /
                               episode_stats['total_passengers_served'] if episode_stats['total_passengers_served'] > 0 else 0)
-            
+
             # Emit episode summary
             socketio.emit('episode_summary', {
                 'total_reward': round(episode_stats['total_reward'], 2),
                 'avg_reward': round(episode_stats['total_reward'] / episode_stats['steps_taken'], 2),
                 'total_passengers_served': episode_stats['total_passengers_served'],
                 'total_passengers_generated': episode_stats['total_passengers_generated'],
-                'completion_rate': round(episode_stats['total_passengers_served'] / 
+                'completion_rate': round(episode_stats['total_passengers_served'] /
                                       max(episode_stats['total_passengers_generated'], 1) * 100, 1),
                 'avg_waiting_time': round(avg_waiting_time, 2),
                 'min_waiting_time': round(episode_stats['min_waiting_time'], 2),
@@ -305,7 +327,7 @@ def simulation_thread_function() -> None:
                 'avg_passengers_per_step': round(episode_stats['avg_passengers_per_step'], 2),
                 'using_model': using_model
             })
-            
+
             simulation_active = False
             break
 
@@ -351,27 +373,27 @@ def load_model():
         simulation_active = False
         if simulation_thread:
             simulation_thread.join(timeout=2)
-        
+
         temp_path = 'temp_model.zip'
         file.save(temp_path)
-        
+
         # Load the model
         model = PPO.load(temp_path)
         using_model = True
-        
+
         # Extract expected configuration from the model's observation space
         expected_buttons_shape = model.policy.observation_space.spaces['elevator_buttons'].shape
         expected_num_floors, expected_num_elevators = expected_buttons_shape
-        
+
         # Force the global configuration to match the model
         num_floors = expected_num_floors
         num_elevators = expected_num_elevators
-        
+
         # Reinitialize environment with the model's required configuration
         init_environment()
-        
+
         os.remove(temp_path)
-        
+
         return jsonify({
             'status': 'success',
             'message': f'Model loaded successfully. Environment configured for {num_floors} floors and {num_elevators} elevators.',
@@ -383,6 +405,44 @@ def load_model():
         model = None
         logger.exception("Error loading model")
         return jsonify({'status': 'error', 'message': f'Error loading model: {str(e)}'})
+
+# --- NEW: Endpoint for loading scenarios ---
+@app.route('/load_scenario', methods=['POST'])
+def load_scenario():
+    """Receives and validates a passenger arrival scenario from the frontend."""
+    global passenger_scenario, scenario_mode_active, simulation_active, simulation_thread, num_floors
+
+    # Stop any running simulation before loading a new scenario
+    if simulation_active:
+        simulation_active = False
+        if simulation_thread:
+            simulation_thread.join(timeout=2)
+
+    data = request.json
+    if not isinstance(data, list):
+        return jsonify({'status': 'error', 'message': 'Scenario must be a list of passenger objects.'}), 400
+
+    # --- NEW: Validation against current environment config ---
+    for item in data:
+        if not all(k in item for k in ['arrival_step', 'start_floor', 'destination_floor']):
+            return jsonify({'status': 'error', 'message': 'Each scenario item is malformed.'}), 400
+
+        start_floor = item['start_floor']
+        dest_floor = item['destination_floor']
+
+        if not (0 <= start_floor < num_floors and 0 <= dest_floor < num_floors):
+            error_msg = f"Invalid floor in scenario. Floor must be between 0 and {num_floors - 1}."
+            logger.error(f"{error_msg} Received start: {start_floor}, dest: {dest_floor}")
+            return jsonify({'status': 'error', 'message': error_msg}), 400
+    # --- END OF VALIDATION ---
+
+    with state_lock:
+        passenger_scenario = data
+        scenario_mode_active = True
+        logger.info(f"Successfully loaded a scenario with {len(passenger_scenario)} passengers.")
+
+    return jsonify({'status': 'success', 'message': f'Scenario with {len(data)} passengers loaded.'})
+# ------------------------------------------
 
 @app.route('/request_elevator', methods=['POST'])
 def request_elevator():
@@ -401,13 +461,20 @@ def request_elevator():
         logger.exception("Error requesting elevator")
         return jsonify({'status': 'error', 'message': str(e)})
 
+# --- UPDATED: To handle scenario state reset ---
 @app.route('/reset_simulation', methods=['POST'])
 def reset_simulation():
     global env, simulation_active, simulation_thread, model, using_model
+    global passenger_scenario, scenario_mode_active # Add this line
     try:
         simulation_active = False
         if simulation_thread:
             simulation_thread.join(timeout=2)
+
+        # Reset scenario state
+        passenger_scenario = None
+        scenario_mode_active = False
+
         init_environment()
         model = None
         using_model = False
@@ -415,6 +482,7 @@ def reset_simulation():
     except Exception as e:
         logger.exception("Error resetting simulation")
         return jsonify({'status': 'error', 'message': str(e)})
+# ---------------------------------------------
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000) 
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

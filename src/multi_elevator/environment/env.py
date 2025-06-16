@@ -52,8 +52,8 @@ class MultiElevatorEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": RENDER_FPS}
 
     def __init__(self, render_mode: Optional[str] = None, max_steps: int = DEFAULT_MAX_STEPS,
-                 passenger_rate: float = DEFAULT_PASSENGER_RATE, num_elevators: int = DEFAULT_NUM_ELEVATORS, 
-                 num_floors: int = DEFAULT_NUM_FLOORS) -> None:
+                 passenger_rate: float = DEFAULT_PASSENGER_RATE, num_elevators: int = DEFAULT_NUM_ELEVATORS,
+                 num_floors: int = DEFAULT_NUM_FLOORS, scenario: Optional[list] = None) -> None:
         """
         Initialize the Multi-Elevator environment.
 
@@ -63,15 +63,25 @@ class MultiElevatorEnv(gym.Env):
             passenger_rate: Probability of new passenger arrival per step
             num_elevators: Number of elevators in the building
             num_floors: Number of floors in the building
+            scenario: An optional list of predefined passenger arrivals.
+                      Each item should be a dict: {'arrival_step': int, 'start_floor': int, 'destination_floor': int}
         """
         super().__init__()
-        
+
         # Environment configuration
         self.num_floors = num_floors
         self.num_elevators = num_elevators
         self.max_steps = max_steps
         self.passenger_rate = passenger_rate
-        
+
+        # Scenario configuration
+        if scenario:
+            # Sort scenario by arrival time for efficient processing
+            self.scenario = sorted(scenario, key=lambda p: p['arrival_step'])
+        else:
+            self.scenario = None
+        self.scenario_index = 0
+
         # Define observation space
         self.observation_space = spaces.Dict({
             "elevator_positions": spaces.MultiDiscrete([self.num_floors] * self.num_elevators),
@@ -80,16 +90,16 @@ class MultiElevatorEnv(gym.Env):
             "floor_buttons": spaces.MultiBinary(self.num_floors),
             "waiting_passengers": spaces.Box(low=0, high=100, shape=(self.num_floors,), dtype=np.int32)
         })
-        
+
         # Define action space: For each elevator: 0 (idle), 1 (up), 2 (down)
         self.action_space = spaces.MultiDiscrete([3] * self.num_elevators)
-        
+
         # Rendering setup
         self.render_mode = render_mode
         self.screen = None
         self.clock = None
         self.font = None
-        
+
         # Initialize state variables
         self.current_reward = 0.0
         self.elevator_positions = None
@@ -102,7 +112,7 @@ class MultiElevatorEnv(gym.Env):
         self.current_step = 0
         self.total_waiting_time = 0
         self.total_passengers_served = 0
-        
+
         # Reset to initialize state variables
         self.reset()
         
@@ -143,14 +153,14 @@ class MultiElevatorEnv(gym.Env):
         """
         super().reset(seed=seed)
         logger.debug("Resetting MultiElevatorEnv")
-        
+
         # Initialize state arrays
         self.elevator_positions = np.zeros(self.num_elevators, dtype=np.int32)
         self.elevator_directions = np.zeros(self.num_elevators, dtype=np.int32)
         self.elevator_buttons = np.zeros((self.num_floors, self.num_elevators), dtype=bool)
         self.floor_buttons = np.zeros(self.num_floors, dtype=bool)
         self.waiting_passengers = np.zeros(self.num_floors, dtype=np.int32)
-        
+
         # Initialize tracking variables
         self.passengers_in_elevators = [[] for _ in range(self.num_elevators)]
         self.waiting_time = {}
@@ -158,16 +168,20 @@ class MultiElevatorEnv(gym.Env):
         self.total_waiting_time = 0
         self.total_passengers_served = 0
         self.current_reward = 0.0
-        
-        # Distribute elevators and generate initial passengers
+        self.scenario_index = 0 # Reset scenario progress
+
+        # Distribute elevators
         self._distribute_elevators()
-        for _ in range(INITIAL_PASSENGERS):
-            self._generate_passenger()
         
+        # Generate initial passengers ONLY if not in scenario mode
+        if not self.scenario:
+            for _ in range(INITIAL_PASSENGERS):
+                self._generate_passenger()
+
         # Initialize rendering if needed
         if self.render_mode == "human" and self.screen is None:
             self._render_setup()
-            
+
         return self._get_obs(), self._get_info()
     
     def _distribute_elevators(self) -> None:
@@ -178,20 +192,25 @@ class MultiElevatorEnv(gym.Env):
             for i in range(1, self.num_elevators - 1):
                 self.elevator_positions[i] = (i * self.num_floors) // self.num_elevators
     
-    def _generate_passenger(self, start_floor: Optional[int] = None) -> str:
-        """Generate a new passenger with random start and destination floors."""
+    def _generate_passenger(self, start_floor: Optional[int] = None, destination_floor: Optional[int] = None) -> str:
+        """Generate a new passenger with random or specified start and destination floors."""
         if start_floor is None:
             start_floor = self.np_random.integers(0, self.num_floors)
         elif start_floor < 0 or start_floor >= self.num_floors:
             raise ValueError(f"Invalid start floor: {start_floor}")
-            
-        destination_floor = start_floor
-        while destination_floor == start_floor:
-            destination_floor = self.np_random.integers(0, self.num_floors)
-        
+
+        if destination_floor is None:
+            destination_floor = start_floor
+            while destination_floor == start_floor:
+                destination_floor = self.np_random.integers(0, self.num_floors)
+        elif destination_floor < 0 or destination_floor >= self.num_floors:
+            raise ValueError(f"Invalid destination floor: {destination_floor}")
+        elif destination_floor == start_floor:
+            logger.warning(f"Passenger generated with same start and destination floor: {start_floor}. This is unusual for a scenario.")
+
         self.waiting_passengers[start_floor] += 1
         self.floor_buttons[start_floor] = True
-        
+
         passenger_id = f"{self.current_step}_{start_floor}_{destination_floor}_{self.waiting_passengers[start_floor]}"
         self.waiting_time[passenger_id] = {
             "start_floor": start_floor,
@@ -514,10 +533,24 @@ class MultiElevatorEnv(gym.Env):
         for elev_id in range(self.num_elevators):
             self._process_elevator_action(elev_id, action[elev_id])
             
-        # Generate new passengers
-        if self.np_random.random() < self.passenger_rate:
-            self._generate_passenger()
-            
+        # Generate new passengers based on mode (scenario or random)
+        if self.scenario:
+            # Scenario mode: Check if it's time to spawn the next passenger(s)
+            # Use a while loop in case multiple passengers arrive on the same step
+            while (self.scenario_index < len(self.scenario) and
+                   self.scenario[self.scenario_index]['arrival_step'] == self.current_step):
+                
+                passenger_data = self.scenario[self.scenario_index]
+                self._generate_passenger(
+                    start_floor=passenger_data['start_floor'],
+                    destination_floor=passenger_data['destination_floor']
+                )
+                self.scenario_index += 1
+        else:
+            # Random mode: Original behavior
+            if self.np_random.random() < self.passenger_rate:
+                self._generate_passenger()
+                
         # Calculate reward and update state
         reward = self.calculate_reward()
         self.current_reward = reward

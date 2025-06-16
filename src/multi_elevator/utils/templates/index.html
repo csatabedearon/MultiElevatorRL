@@ -116,10 +116,11 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            /* Changed to 4 columns to accommodate the new card */
+            grid-template-columns: repeat(4, 1fr);
             grid-template-areas:
-                "viz controls stats"
-                "viz graphs graphs";
+                "viz viz controls stats" /* viz now spans 2 columns */
+                "viz viz scenario graphs"; /* new scenario area */
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
@@ -128,6 +129,7 @@
         .controls-area { grid-area: controls; }
         .stats-area { grid-area: stats; }
         .graphs-area { grid-area: graphs; }
+        .scenario-area { grid-area: scenario; }
 
         .card {
             background-color: var(--card-bg);
@@ -585,6 +587,84 @@
             font-weight: 600;
             color: var(--secondary);
         }
+        
+        /* --- Styles for Scenario Builder --- */
+        .scenario-area {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group-inline {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
+
+        .form-group-inline .form-field {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .form-group-inline label {
+            font-size: 0.8rem;
+            display: block;
+            margin-bottom: 0.25rem;
+            color: var(--text-muted);
+        }
+
+        .form-group-inline input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .scenario-list-container {
+            margin-top: 1rem;
+            flex-grow: 1;
+            background-color: rgba(128, 128, 128, 0.05);
+            border-radius: 6px;
+            padding: 0.75rem;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        #scenarioList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #scenarioList li {
+            background-color: var(--card-bg);
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+        }
+
+        #scenarioList li.no-passengers {
+            color: var(--text-muted);
+            justify-content: center;
+            border: 1px dashed var(--border-color);
+            background: none;
+        }
+
+        .remove-passenger-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            padding: 0.2rem;
+        }
+        /* ---------------------------------- */
 
         @keyframes pulse {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(247, 37, 133, 0.4); }
@@ -606,9 +686,9 @@
              .dashboard {
                   grid-template-columns: 1fr 1fr;
                   grid-template-areas:
-                       "viz controls"
-                       "viz stats"
-                       "graphs graphs";
+                       "viz viz"
+                       "controls stats"
+                       "scenario graphs"; /* Updated layout */
              }
              .floor { min-height: var(--floor-height-tablet); }
              .elevator {
@@ -642,6 +722,7 @@
                 grid-template-areas:
                     "viz"
                     "controls"
+                    "scenario"  /* Added new area */
                     "stats"
                     "graphs";
                 gap: 1rem;
@@ -893,6 +974,42 @@
                 </div>
             </div>
 
+            <!-- ======================= NEW SCENARIO BUILDER CARD ======================= -->
+            <div class="card scenario-area">
+                <h2>Scenario Builder</h2>
+                <div id="scenario-builder-form">
+                    <div class="form-group-inline">
+                        <div class="form-field">
+                            <label for="scenarioStep">Step</label>
+                            <input type="number" id="scenarioStep" min="0" placeholder="e.g., 5">
+                        </div>
+                        <div class="form-field">
+                            <label for="scenarioStart">Start</label>
+                            <input type="number" id="scenarioStart" min="0" placeholder="Floor">
+                        </div>
+                        <div class="form-field">
+                            <label for="scenarioDest">Dest</label>
+                            <input type="number" id="scenarioDest" min="0" placeholder="Floor">
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" id="addPassengerBtn" style="width: 100%; margin-top: 0.5rem;">Add Passenger to Scenario</button>
+                </div>
+
+                <div class="scenario-list-container">
+                    <p><strong>Scenario Passenger List:</strong></p>
+                    <ul id="scenarioList">
+                        <!-- Passenger items will be added here by JavaScript -->
+                        <li class="no-passengers">No passengers added yet.</li>
+                    </ul>
+                </div>
+
+                <div class="button-container" style="margin-top: auto;">
+                     <button class="btn btn-primary" id="loadScenarioBtn" disabled>Load Scenario & Start</button>
+                </div>
+                <div id="scenarioStatusMessage" class="status-message"></div>
+            </div>
+            <!-- ======================================================================= -->
+
             <div class="graphs-area">
                  <div class="graph-container">
                      <canvas id="passengersChart"></canvas>
@@ -918,6 +1035,7 @@
         let simulationRunning = false;
         let simulationPaused = false;
         let modelLoaded = false;
+        let passengerScenarioList = []; // To store the list of passengers before sending
 
         const maxDataPoints = 100;
         const chartData = {
@@ -948,7 +1066,17 @@
             welcomeModal: document.getElementById('welcomeModal'),
             episodeSummaryModal: document.getElementById('episodeSummaryModal'),
             overrideButton: document.getElementById('overrideButton'),
-            themeToggleBtn: document.getElementById('themeToggle')
+            themeToggleBtn: document.getElementById('themeToggle'),
+            // --- NEW SCENARIO ELEMENTS ---
+            scenarioArea: document.querySelector('.scenario-area'),
+            scenarioStepInput: document.getElementById('scenarioStep'),
+            scenarioStartInput: document.getElementById('scenarioStart'),
+            scenarioDestInput: document.getElementById('scenarioDest'),
+            addPassengerBtn: document.getElementById('addPassengerBtn'),
+            scenarioList: document.getElementById('scenarioList'),
+            loadScenarioBtn: document.getElementById('loadScenarioBtn'),
+            scenarioStatusMessage: document.getElementById('scenarioStatusMessage')
+            // --- END OF NEW ELEMENTS ---
         };
 
         elements.rateSlider.addEventListener('input', function() {
@@ -997,7 +1125,7 @@
 
         socket.on('episode_summary', (data) => {
             console.log("Episode Summary Received:", data);
-            setSimulationState(false);
+            setSimulationState(false, false, data.scenario_mode);
             showEpisodeSummary(data);
         });
 
@@ -1045,7 +1173,7 @@
             elements.statsDiv.innerHTML = `
                 <p><strong>Step:</strong> ${data.current_step + 1} / ${data.max_steps}</p>
                 <p><strong>Reward:</strong> ${data.reward.toFixed(2)}</p>
-                <p><strong style="color: ${data.using_model ? 'var(--success)' : 'var(--warning)'};">Mode:</strong> ${data.using_model ? 'Trained Model' : 'Random Actions'}</p>
+                <p><strong style="color: ${data.scenario_mode ? 'var(--primary)' : (data.using_model ? 'var(--success)' : 'var(--warning)')};">Mode:</strong> ${data.scenario_mode ? 'Scenario' : (data.using_model ? 'Trained Model' : 'Random Actions')}</p>
                 <p><strong>Avg Wait Time (current):</strong> ${data.avg_wait_time.toFixed(1)} steps</p>
                 <p><strong>Passengers (Waiting):</strong> ${totalWaitingPassengers}</p>
                 <p><strong>Passengers (In Elevators):</strong> ${totalPassengersInElevators}</p>
@@ -1066,6 +1194,102 @@
             updateSliderIfNeeded(elements.speedSlider, elements.speedValue, data.simulation_speed);
             updateSliderIfNeeded(elements.maxStepsSlider, elements.maxStepsValue, data.max_steps);
         }
+
+        // ========================================================================
+        // --- NEW FUNCTIONS FOR SCENARIO BUILDER ---
+        // ========================================================================
+
+        function addPassengerToScenarioUI() {
+            const step = parseInt(elements.scenarioStepInput.value);
+            const start = parseInt(elements.scenarioStartInput.value);
+            const dest = parseInt(elements.scenarioDestInput.value);
+            const maxFloors = parseInt(elements.numFloorsInput.value) - 1;
+
+            // --- Basic Validation ---
+            if (isNaN(step) || isNaN(start) || isNaN(dest)) {
+                showStatus('All fields must be filled with numbers.', true, elements.scenarioStatusMessage);
+                return;
+            }
+            if (step < 0 || start < 0 || dest < 0) {
+                showStatus('Values cannot be negative.', true, elements.scenarioStatusMessage);
+                return;
+            }
+            if (start > maxFloors || dest > maxFloors) {
+                showStatus(`Floors must be between 0 and ${maxFloors}.`, true, elements.scenarioStatusMessage);
+                return;
+            }
+            if (start === dest) {
+                showStatus('Start and Destination floors cannot be the same.', true, elements.scenarioStatusMessage);
+                return;
+            }
+
+            // Add passenger to our JS list and re-render the UI list
+            passengerScenarioList.push({ arrival_step: step, start_floor: start, destination_floor: dest });
+            renderScenarioList();
+
+            // Clear inputs for the next entry
+            elements.scenarioStepInput.value = '';
+            elements.scenarioStartInput.value = '';
+            elements.scenarioDestInput.value = '';
+            elements.scenarioStepInput.focus();
+        }
+
+        function removePassengerFromScenarioUI(index) {
+            passengerScenarioList.splice(index, 1);
+            renderScenarioList();
+        }
+
+        function renderScenarioList() {
+            // Clear the current list
+            elements.scenarioList.innerHTML = '';
+
+            if (passengerScenarioList.length === 0) {
+                elements.scenarioList.innerHTML = '<li class="no-passengers">No passengers added yet.</li>';
+                elements.loadScenarioBtn.disabled = true;
+                return;
+            }
+
+            // Sort list by arrival step for better readability
+            passengerScenarioList.sort((a, b) => a.arrival_step - b.arrival_step);
+
+            // Add each passenger to the list
+            passengerScenarioList.forEach((p, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span>Step <b>${p.arrival_step}</b>: Floor <b>${p.start_floor}</b> → <b>${p.destination_floor}</b></span>
+                    <button class="remove-passenger-btn" onclick="removePassengerFromScenarioUI(${index})">×</button>
+                `;
+                elements.scenarioList.appendChild(li);
+            });
+
+            elements.loadScenarioBtn.disabled = false;
+        }
+
+        async function loadAndStartScenario() {
+            if (passengerScenarioList.length === 0) {
+                showStatus('Cannot start with an empty scenario.', true, elements.scenarioStatusMessage);
+                return;
+            }
+
+            elements.loadScenarioBtn.disabled = true;
+            try {
+                // Send the scenario to the backend
+                const result = await fetchApi('/load_scenario', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(passengerScenarioList)
+                });
+                showStatus(result.message, false, elements.scenarioStatusMessage);
+
+                // If successful, start the main simulation
+                startSimulation();
+
+            } catch (error) {
+                showStatus(`Error loading scenario: ${error.message}`, true, elements.scenarioStatusMessage);
+                elements.loadScenarioBtn.disabled = false;
+            }
+        }
+        // ========================================================================
 
         function updateSliderIfNeeded(slider, valueDisplay, serverValue) {
             const currentValue = slider.type === 'range' ? parseFloat(slider.value) : parseInt(slider.value);
@@ -1152,11 +1376,11 @@
              elements.loadModelBtn.disabled = !input.files || input.files.length === 0;
          }
 
-        function setSimulationState(isRunning, isPaused = false) {
+        function setSimulationState(isRunning, isPaused = false, isScenarioMode = false) {
             simulationRunning = isRunning;
             simulationPaused = isPaused;
 
-            elements.startBtn.disabled = isRunning;
+            elements.startBtn.disabled = isRunning || isScenarioMode;
             elements.stopBtn.disabled = !isRunning;
             elements.pauseButton.disabled = !isRunning;
             elements.resetBtn.disabled = isRunning;
@@ -1165,6 +1389,16 @@
             elements.numFloorsInput.disabled = isRunning || modelLoaded;
             elements.loadModelBtn.disabled = isRunning || !elements.modelFileInput.files || elements.modelFileInput.files.length === 0;
             elements.modelFileInput.disabled = isRunning;
+
+            // --- NEW: Disable scenario/random controls based on state ---
+            const inScenarioRun = isRunning && isScenarioMode;
+            elements.rateSlider.disabled = inScenarioRun;
+            elements.scenarioArea.style.opacity = isRunning ? 0.6 : 1.0;
+            elements.addPassengerBtn.disabled = isRunning;
+            elements.loadScenarioBtn.disabled = isRunning || passengerScenarioList.length === 0;
+
+            document.querySelectorAll('.floor-button').forEach(btn => btn.disabled = inScenarioRun);
+            // ---
 
             if (isRunning) {
                 elements.pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
@@ -1336,6 +1570,12 @@
                  modelLoaded = false;
                  setSimulationState(false);
                  resetCharts();
+
+                 // --- NEW: Clear scenario UI state ---
+                 passengerScenarioList = [];
+                 renderScenarioList();
+                 elements.scenarioStatusMessage.classList.remove('visible');
+                 // ---
 
                  elements.modelFileInput.value = '';
                  elements.loadModelBtn.disabled = true;
@@ -1593,6 +1833,10 @@
             showWelcomeModal();
             setSimulationState(false);
             elements.startBtn.disabled = true;
+            // --- NEW EVENT LISTENERS ---
+            elements.addPassengerBtn.addEventListener('click', addPassengerToScenarioUI);
+            elements.loadScenarioBtn.addEventListener('click', loadAndStartScenario);
+            // ---------------------------
         });
 
     </script>
