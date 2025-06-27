@@ -1,5 +1,12 @@
 """
-Training script for the Multi-Elevator RL model using PPO.
+This script handles the training process for the Multi-Elevator RL agent.
+
+It uses the Proximal Policy Optimization (PPO) algorithm from the Stable Baselines3
+library to train a model on the custom `MultiElevatorEnv` environment.
+
+The script sets up the training environment, including vectorization for parallel
+processing, and configures callbacks for evaluation and checkpointing. It allows
+for dynamic configuration of hyperparameters, which can be passed as arguments.
 """
 import os
 import logging
@@ -18,7 +25,7 @@ from multi_elevator.config.training_config import (
     TRAINING_CONFIG, EVAL_CONFIG, MODEL_PATHS, TENSORBOARD_DIR, LOGS_DIR
 )
 
-# Set up logging
+# Configure logging for the training process
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -29,16 +36,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def make_env(rank: int, seed: int = 0) -> gym.Env:
+def make_env(rank: int, seed: int = 0):
     """
-    Create a wrapped, monitored environment.
-    
+    Utility function for creating a single, monitored environment instance.
+
+    This function is used by the vectorized environment to create each parallel
+    environment. It wraps the base environment with a `Monitor` to log statistics.
+
     Args:
-        rank: The rank of the environment
-        seed: The seed for the environment
-        
+        rank: A unique identifier for the environment instance.
+        seed: The random seed for the environment.
+
     Returns:
-        The wrapped environment
+        A callable that returns the created environment.
     """
     def _init():
         env = MultiElevatorEnv(
@@ -47,22 +57,26 @@ def make_env(rank: int, seed: int = 0) -> gym.Env:
             max_steps=TRAINING_CONFIG["max_steps"],
             passenger_rate=TRAINING_CONFIG["passenger_rate"]
         )
-        env = Monitor(env, str(LOGS_DIR / f"env_{rank}"))
+        # Wrap the environment with a Monitor to log rewards and other info
+        env = Monitor(env, str(LOGS_DIR / f"env_{rank}.log"))
         env.reset(seed=seed + rank)
         return env
     set_random_seed(seed + rank)
     return _init
 
-def create_vec_env(num_envs: int, seed: int = 0) -> gym.Env:
+def create_vec_env(num_envs: int, seed: int = 0):
     """
-    Create a vectorized environment.
-    
+    Creates a vectorized environment for parallel training.
+
+    If `num_envs` is greater than 1, it uses `SubprocVecEnv` for multiprocessing.
+    Otherwise, it uses a `DummyVecEnv` for single-process training.
+
     Args:
-        num_envs: Number of environments to create
-        seed: The seed for the environments
-        
+        num_envs: The number of parallel environments to create.
+        seed: The base random seed.
+
     Returns:
-        The vectorized environment
+        The created vectorized environment.
     """
     if num_envs > 1:
         return SubprocVecEnv([make_env(i, seed) for i in range(num_envs)])
@@ -90,116 +104,112 @@ def train(
     session_id: Optional[str] = None
 ) -> None:
     """
-    Train the Multi-Elevator RL model.
-    
+    Main function to train the PPO model.
+
+    This function orchestrates the training process by:
+    - Setting up session-specific directories for models, logs, and checkpoints.
+    - Creating training and evaluation environments.
+    - Configuring callbacks for periodic evaluation and model saving.
+    - Initializing and training the PPO agent.
+
     Args:
-        seed: Random seed for reproducibility
-        num_envs: Number of environments to use (overrides config)
-        total_timesteps: Total number of timesteps to train (overrides config)
-        eval_freq: Frequency of evaluation (overrides config)
-        n_eval_episodes: Number of episodes to evaluate (overrides config)
-        learning_rate: Learning rate (overrides config)
-        n_steps: Number of steps per update (overrides config)
-        batch_size: Batch size (overrides config)
-        n_epochs: Number of epochs per update (overrides config)
-        gamma: Discount factor (overrides config)
-        gae_lambda: GAE lambda parameter (overrides config)
-        clip_range: PPO clip range (overrides config)
-        ent_coef: Entropy coefficient (overrides config)
-        vf_coef: Value function coefficient (overrides config)
-        max_grad_norm: Maximum gradient norm (overrides config)
-        target_kl: Target KL divergence (overrides config)
-        stats_window_size: Window size for statistics (overrides config)
-        policy_kwargs: Policy network architecture (overrides config)
-        session_id: Unique identifier for this training session
+        seed: Random seed for reproducibility.
+        num_envs: Number of parallel environments (overrides config).
+        total_timesteps: Total training timesteps (overrides config).
+        eval_freq: Evaluation frequency (overrides config).
+        n_eval_episodes: Number of evaluation episodes (overrides config).
+        learning_rate: The learning rate for the optimizer (overrides config).
+        n_steps: Number of steps per environment per update (overrides config).
+        batch_size: Minibatch size (overrides config).
+        n_epochs: Number of optimization epochs per update (overrides config).
+        gamma: Discount factor (overrides config).
+        gae_lambda: GAE lambda parameter (overrides config).
+        clip_range: PPO clipping parameter (overrides config).
+        ent_coef: Entropy coefficient (overrides config).
+        vf_coef: Value function coefficient (overrides config).
+        max_grad_norm: Max gradient norm for clipping (overrides config).
+        target_kl: Target KL divergence for early stopping (overrides config).
+        stats_window_size: Window size for rollout statistics (overrides config).
+        policy_kwargs: Custom network architecture (overrides config).
+        session_id: A unique identifier for the training session.
     """
-    # Update config with provided parameters
+    # Override default configuration with any provided arguments
     config = TRAINING_CONFIG.copy()
-    if num_envs is not None:
-        config["num_envs"] = num_envs
-    if total_timesteps is not None:
-        config["total_timesteps"] = total_timesteps
-    if eval_freq is not None:
-        config["eval_freq"] = eval_freq
-    if n_eval_episodes is not None:
-        config["n_eval_episodes"] = n_eval_episodes
-    
-    # Create session-specific directories
-    session_dir = MODEL_PATHS["best_model"].parent / f"session_{session_id}" if session_id else MODEL_PATHS["best_model"].parent
-    session_dir.mkdir(parents=True, exist_ok=True)
-    
+    config.update({k: v for k, v in locals().items() if v is not None and k in config})
+
+    # Create session-specific directories for better organization
+    session_name = f"session_{session_id}" if session_id else "default_session"
+    session_dir = MODEL_PATHS["best_model"].parent / session_name
     session_checkpoints_dir = session_dir / "checkpoints"
-    session_checkpoints_dir.mkdir(parents=True, exist_ok=True)
-    
-    session_tensorboard_dir = TENSORBOARD_DIR / f"session_{session_id}" if session_id else TENSORBOARD_DIR
-    session_tensorboard_dir.mkdir(parents=True, exist_ok=True)
-    
-    session_logs_dir = LOGS_DIR / f"session_{session_id}" if session_id else LOGS_DIR
-    session_logs_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create training environment
+    session_tensorboard_dir = TENSORBOARD_DIR / session_name
+    session_logs_dir = LOGS_DIR / session_name
+
+    for path in [session_dir, session_checkpoints_dir, session_tensorboard_dir, session_logs_dir]:
+        path.mkdir(parents=True, exist_ok=True)
+
+    # Create the vectorized training and evaluation environments
     train_env = create_vec_env(config["num_envs"], seed)
-    
-    # Create evaluation environment
-    eval_env = create_vec_env(1, seed + config["num_envs"])
-    
-    # Create callbacks
+    eval_env = create_vec_env(1, seed + config["num_envs"]) # Use a different seed for eval
+
+    # Set up callbacks for evaluation and checkpointing
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path=str(session_dir),
         log_path=str(session_logs_dir),
         eval_freq=config["eval_freq"],
         n_eval_episodes=config["n_eval_episodes"],
-        deterministic=True,
-        render=False
+        deterministic=EVAL_CONFIG["deterministic"],
+        render=EVAL_CONFIG["render"]
     )
-    
+
     checkpoint_callback = CheckpointCallback(
         save_freq=config["eval_freq"],
         save_path=str(session_checkpoints_dir),
-        name_prefix=f"ppo_multi_elevator_{session_id}" if session_id else "ppo_multi_elevator"
+        name_prefix=f"ppo_multi_elevator_{session_id or 'model'}"
     )
-    
-    # Create and train the model
+
+    # Initialize the PPO model with specified hyperparameters
     model = PPO(
         "MultiInputPolicy",
         train_env,
-        learning_rate=learning_rate or config["learning_rate"],
-        n_steps=n_steps or config["n_steps"],
-        batch_size=batch_size or config["batch_size"],
-        n_epochs=n_epochs or config["n_epochs"],
-        gamma=gamma or config["gamma"],
-        gae_lambda=gae_lambda or config["gae_lambda"],
-        clip_range=clip_range or config["clip_range"],
-        clip_range_vf=config["clip_range_vf"],
-        ent_coef=ent_coef or config["ent_coef"],
-        vf_coef=vf_coef or config["vf_coef"],
-        max_grad_norm=max_grad_norm or config["max_grad_norm"],
-        target_kl=target_kl or config["target_kl"],
-        stats_window_size=stats_window_size or config["stats_window_size"],
-        policy_kwargs=policy_kwargs or config["policy_kwargs"],
+        learning_rate=config["learning_rate"],
+        n_steps=config["n_steps"],
+        batch_size=config["batch_size"],
+        n_epochs=config["n_epochs"],
+        gamma=config["gamma"],
+        gae_lambda=config["gae_lambda"],
+        clip_range=config["clip_range"],
+        ent_coef=config["ent_coef"],
+        vf_coef=config["vf_coef"],
+        max_grad_norm=config["max_grad_norm"],
+        target_kl=config["target_kl"],
+        stats_window_size=config["stats_window_size"],
+        policy_kwargs=config["policy_kwargs"],
         tensorboard_log=str(session_tensorboard_dir),
         verbose=1
     )
-    
+
+    # Start the training process
     try:
+        logger.info(f"Starting training session: {session_name}")
         model.learn(
             total_timesteps=config["total_timesteps"],
             callback=[eval_callback, checkpoint_callback],
             progress_bar=True
         )
     except KeyboardInterrupt:
-        logger.info("Training interrupted by user")
+        logger.warning("Training interrupted by user.")
     finally:
-        # Save the final model
-        model.save(session_dir / "latest_model.zip")
-        logger.info(f"Training completed. Models saved in {session_dir}")
-        
-        # Close environments
+        # Save the final model and clean up
+        final_model_path = session_dir / "latest_model.zip"
+        model.save(final_model_path)
+        logger.info(f"Training complete. Final model saved to {final_model_path}")
         train_env.close()
         eval_env.close()
 
 if __name__ == "__main__":
-    # Set random seed for reproducibility
+    # Set a fixed random seed for reproducibility of the training process
     seed = 42
+
+    # Start the training process with the specified seed
     train(seed=seed) 

@@ -1,14 +1,28 @@
 # setup.py
 """
 Setup configuration for the Multi-Elevator RL package.
+
+This script is used to configure the installation of the 'multi_elevator' package,
+including its dependencies, metadata, and other properties.
 """
 from setuptools import setup, find_packages
 
 setup(
+    # Package metadata
     name="multi_elevator",
     version="0.1.0",
+    author="Csata Bede Aron",
+    author_email="csatabedearonka@gmail.com",
+    description="A multi-elevator reinforcement learning environment",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/csatabedearon/multi_elevator",
+
+    # Package structure
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+
+    # Dependencies
     install_requires=[
         "gymnasium>=0.29.1",
         "numpy>=1.24.0",
@@ -33,13 +47,11 @@ setup(
             "flake8>=6.1.0",
         ],
     },
+
+    # Python version requirement
     python_requires=">=3.8",
-    author="Csata Bede Aron",
-    author_email="csatabedearonka@gmail.com",
-    description="A multi-elevator reinforcement learning environment",
-    long_description=open("README.md").read(),
-    long_description_content_type="text/markdown",
-    url="https://github.com/csatabedearon/multi_elevator",
+
+    # PyPI classifiers
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
