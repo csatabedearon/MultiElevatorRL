@@ -4,7 +4,7 @@ Date: 2026-09-15
 
 ## Scope
 
-This report records the environment, reward, PPO, evaluation, and tooling improvements made after cloning the original state-exam project. Generated model archives and TensorBoard/Optuna databases remain local and are intentionally ignored by Git; the reproducible code and this report are committed.
+This report records the environment, reward, PPO, evaluation, and tooling improvements made after cloning the original state-exam project. Generated intermediate checkpoints and TensorBoard/Optuna databases remain local and are intentionally ignored by Git. The validated v25 `latest_model.zip` is tracked as the selected release artifact; the reproducible code and this report are committed.
 
 ## Code changes
 
