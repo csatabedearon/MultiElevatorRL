@@ -55,7 +55,11 @@ class MultiElevatorEnv(gym.Env):
 
     def __init__(self, render_mode: Optional[str] = None, max_steps: int = DEFAULT_MAX_STEPS,
                  passenger_rate: float = DEFAULT_PASSENGER_RATE, num_elevators: int = DEFAULT_NUM_ELEVATORS,
-                 num_floors: int = DEFAULT_NUM_FLOORS, scenario: Optional[list] = None) -> None:
+                 num_floors: int = DEFAULT_NUM_FLOORS, scenario: Optional[list] = None,
+                 include_waiting_ages: bool = False, max_passengers_per_elevator: Optional[int] = None,
+                 include_elevator_loads: bool = False,
+                 passenger_rate_range: Optional[Tuple[float, float]] = None,
+                 include_passenger_rate: bool = False) -> None:
         """
         Initializes the Multi-Elevator environment.
 
@@ -69,6 +73,8 @@ class MultiElevatorEnv(gym.Env):
             scenario: An optional list of dictionaries defining a predefined passenger
                       arrival sequence. Each dictionary should have 'arrival_step',
                       'start_floor', and 'destination_floor'.
+            passenger_rate_range: Optional inclusive range sampled once per episode.
+            include_passenger_rate: Whether to expose the sampled rate in observations.
         """
         super().__init__()
 
@@ -77,6 +83,21 @@ class MultiElevatorEnv(gym.Env):
         self.num_elevators = num_elevators
         self.max_steps = max_steps
         self.passenger_rate = passenger_rate
+        if passenger_rate_range is not None:
+            low, high = passenger_rate_range
+            if not (0.0 <= low <= high <= 1.0):
+                raise ValueError("passenger_rate_range must satisfy 0 <= low <= high <= 1")
+            self.passenger_rate_range = (float(low), float(high))
+        else:
+            self.passenger_rate_range = None
+        self.include_passenger_rate = include_passenger_rate
+        self.include_waiting_ages = include_waiting_ages
+        if max_passengers_per_elevator is not None and max_passengers_per_elevator < 1:
+            raise ValueError("max_passengers_per_elevator must be at least 1")
+        if include_elevator_loads and max_passengers_per_elevator is None:
+            raise ValueError("include_elevator_loads requires max_passengers_per_elevator")
+        self.max_passengers_per_elevator = max_passengers_per_elevator
+        self.include_elevator_loads = include_elevator_loads
 
         # --- Scenario Handling ---
         # If a scenario is provided, sort it by arrival time for efficient processing.
@@ -88,7 +109,7 @@ class MultiElevatorEnv(gym.Env):
 
         # --- Observation and Action Spaces ---
         # The observation space captures all relevant information about the environment's state.
-        self.observation_space = spaces.Dict({
+        observation_spaces = {
             # Position of each elevator (floor number)
             "elevator_positions": spaces.MultiDiscrete([self.num_floors] * self.num_elevators),
             # Direction of each elevator (0: idle, 1: up, 2: down)
@@ -99,7 +120,23 @@ class MultiElevatorEnv(gym.Env):
             "floor_buttons": spaces.MultiBinary(self.num_floors),
             # Number of passengers waiting on each floor
             "waiting_passengers": spaces.Box(low=0, high=100, shape=(self.num_floors,), dtype=np.int32)
-        })
+        }
+        if self.include_waiting_ages:
+            observation_spaces["waiting_ages"] = spaces.Box(
+                low=0, high=self.max_steps, shape=(self.num_floors,), dtype=np.int32
+            )
+        if self.include_passenger_rate:
+            observation_spaces["passenger_rate"] = spaces.Box(
+                low=0.0, high=1.0, shape=(1,), dtype=np.float32
+            )
+        if self.include_elevator_loads:
+            observation_spaces["elevator_loads"] = spaces.Box(
+                low=0,
+                high=self.max_passengers_per_elevator,
+                shape=(self.num_elevators,),
+                dtype=np.int32,
+            )
+        self.observation_space = spaces.Dict(observation_spaces)
 
         # The action space defines the possible actions for each elevator.
         # For each elevator, the agent can choose: 0 (idle), 1 (move up), 2 (move down).
@@ -130,24 +167,46 @@ class MultiElevatorEnv(gym.Env):
         
     def _get_obs(self) -> Dict[str, Any]:
         """Constructs the observation dictionary from the current environment state."""
-        return {
+        observation = {
             "elevator_positions": self.elevator_positions.copy(),
             "elevator_directions": self.elevator_directions.copy(),
             "elevator_buttons": self.elevator_buttons.copy(),
             "floor_buttons": self.floor_buttons.copy(),
             "waiting_passengers": self.waiting_passengers.copy()
         }
+        if self.include_waiting_ages:
+            waiting_ages = np.zeros(self.num_floors, dtype=np.int32)
+            for data in self.waiting_time.values():
+                if data["wait_end"] is None:
+                    floor = data["start_floor"]
+                    age = min(self.max_steps, self.current_step - data["wait_start"])
+                    waiting_ages[floor] = max(waiting_ages[floor], age)
+            observation["waiting_ages"] = waiting_ages
+        if self.include_passenger_rate:
+            observation["passenger_rate"] = np.array([self.passenger_rate], dtype=np.float32)
+        if self.include_elevator_loads:
+            observation["elevator_loads"] = np.array(
+                [len(passengers) for passengers in self.passengers_in_elevators],
+                dtype=np.int32,
+            )
+        return observation
 
     def _get_info(self) -> Dict[str, Any]:
         """Provides auxiliary information about the environment's state."""
         passengers_in_elevators_count = sum(len(p) for p in self.passengers_in_elevators)
+        max_elevator_load = max(
+            (len(passengers) for passengers in self.passengers_in_elevators),
+            default=0,
+        )
         avg_wait_time = self.total_waiting_time / max(1, self.total_passengers_served)
 
         return {
             "waiting_passengers": int(np.sum(self.waiting_passengers)),
             "passengers_in_elevators": passengers_in_elevators_count,
+            "max_elevator_load": max_elevator_load,
             "average_waiting_time": avg_wait_time,
             "total_passengers_served": self.total_passengers_served,
+            "passenger_rate": self.passenger_rate,
         }
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -165,6 +224,8 @@ class MultiElevatorEnv(gym.Env):
             A tuple containing the initial observation and auxiliary information.
         """
         super().reset(seed=seed)
+        if self.passenger_rate_range is not None:
+            self.passenger_rate = float(self.np_random.uniform(*self.passenger_rate_range))
         logger.debug("Resetting environment to initial state.")
 
         # Initialize state arrays for elevators and floors
@@ -574,9 +635,9 @@ class MultiElevatorEnv(gym.Env):
         reward = self.calculate_reward()
         self.current_reward = reward
 
-        # Check for termination (episode ends due to reaching max steps)
-        terminated = self.current_step >= self.max_steps
-        truncated = False  # Truncation is not used in this version
+        # Reaching the time limit is truncation, not task termination.
+        terminated = False
+        truncated = self.current_step >= self.max_steps
 
         # Render the environment if in human mode
         if self.render_mode == "human":
@@ -672,6 +733,11 @@ class MultiElevatorEnv(gym.Env):
                 p_id for p_id, data in self.waiting_time.items()
                 if data["start_floor"] == current_floor and data["wait_end"] is None
             ]
+            if self.max_passengers_per_elevator is not None:
+                capacity_remaining = self.max_passengers_per_elevator - len(
+                    self.passengers_in_elevators[elevator_id]
+                )
+                passengers_to_pickup = passengers_to_pickup[:max(0, capacity_remaining)]
 
             for passenger_id in passengers_to_pickup:
                 # Add passenger to the elevator

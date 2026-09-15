@@ -43,6 +43,7 @@ ppo_multi_elevator_tensorboard/
 best_model/
 best_model_v*/
 *.zip
+models/best_models/session_*/
 temp_model.zip
 
 # OS specific

@@ -34,6 +34,8 @@ setup(
         "gevent>=23.9.1",
         "gevent-websocket>=0.10.1",
         "tensorboard>=2.13.0",
+        "optuna>=4.0,<5",
+        "optuna-dashboard>=0.17,<1",
         "tqdm>=4.65.0",
         "rich>=13.4.0",
     ],

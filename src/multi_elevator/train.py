@@ -16,7 +16,7 @@ from typing import Optional
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback, BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 
@@ -36,7 +36,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def make_env(rank: int, seed: int = 0):
+
+class TrainingMetricsCallback(BaseCallback):
+    """Logs environment metrics once per PPO rollout."""
+
+    _INFO_KEYS = {
+        "waiting_passengers": "rollout/waiting_passengers",
+        "passengers_in_elevators": "rollout/passengers_in_elevators",
+        "total_passengers_served": "rollout/served_passengers",
+        "average_waiting_time": "rollout/average_waiting_time",
+        "passenger_rate": "rollout/passenger_rate",
+    }
+    _MAX_INFO_KEYS = {
+        "max_elevator_load": "rollout/max_elevator_load",
+    }
+
+    def __init__(self):
+        super().__init__()
+        self._sums = {key: 0.0 for key in self._INFO_KEYS}
+        self._max_values = {key: 0.0 for key in self._MAX_INFO_KEYS}
+        self._count = 0
+
+    def _on_step(self) -> bool:
+        for info in self.locals.get("infos", []):
+            for key in self._INFO_KEYS:
+                if key in info:
+                    self._sums[key] += float(info[key])
+            for key in self._MAX_INFO_KEYS:
+                if key in info:
+                    self._max_values[key] = max(self._max_values[key], float(info[key]))
+            self._count += 1
+        return True
+
+    def _on_rollout_end(self) -> None:
+        if self._count:
+            for key, tag in self._INFO_KEYS.items():
+                self.logger.record(tag, self._sums[key] / self._count)
+            for key, tag in self._MAX_INFO_KEYS.items():
+                self.logger.record(tag, self._max_values[key])
+        self._sums = {key: 0.0 for key in self._INFO_KEYS}
+        self._max_values = {key: 0.0 for key in self._MAX_INFO_KEYS}
+        self._count = 0
+
+
+def make_env(rank: int, seed: int = 0, config: Optional[dict] = None):
     """
     Utility function for creating a single, monitored environment instance.
 
@@ -46,16 +89,24 @@ def make_env(rank: int, seed: int = 0):
     Args:
         rank: A unique identifier for the environment instance.
         seed: The random seed for the environment.
+        config: Environment configuration snapshot for this worker.
 
     Returns:
         A callable that returns the created environment.
     """
+    env_config = (config if config is not None else TRAINING_CONFIG).copy()
+
     def _init():
         env = MultiElevatorEnv(
-            num_elevators=TRAINING_CONFIG["num_elevators"],
-            num_floors=TRAINING_CONFIG["num_floors"],
-            max_steps=TRAINING_CONFIG["max_steps"],
-            passenger_rate=TRAINING_CONFIG["passenger_rate"]
+            num_elevators=env_config["num_elevators"],
+            num_floors=env_config["num_floors"],
+            max_steps=env_config["max_steps"],
+            passenger_rate=env_config["passenger_rate"],
+            include_waiting_ages=env_config["include_waiting_ages"],
+            max_passengers_per_elevator=env_config["max_passengers_per_elevator"],
+            include_elevator_loads=env_config["include_elevator_loads"],
+            passenger_rate_range=env_config.get("passenger_rate_range"),
+            include_passenger_rate=env_config.get("include_passenger_rate", False)
         )
         # Wrap the environment with a Monitor to log rewards and other info
         env = Monitor(env, str(LOGS_DIR / f"env_{rank}.log"))
@@ -64,7 +115,7 @@ def make_env(rank: int, seed: int = 0):
     set_random_seed(seed + rank)
     return _init
 
-def create_vec_env(num_envs: int, seed: int = 0):
+def create_vec_env(num_envs: int, seed: int = 0, config: Optional[dict] = None):
     """
     Creates a vectorized environment for parallel training.
 
@@ -74,13 +125,14 @@ def create_vec_env(num_envs: int, seed: int = 0):
     Args:
         num_envs: The number of parallel environments to create.
         seed: The base random seed.
+        config: Environment configuration snapshot for all workers.
 
     Returns:
         The created vectorized environment.
     """
     if num_envs > 1:
-        return SubprocVecEnv([make_env(i, seed) for i in range(num_envs)])
-    return DummyVecEnv([make_env(0, seed)])
+        return SubprocVecEnv([make_env(i, seed, config) for i in range(num_envs)])
+    return DummyVecEnv([make_env(0, seed, config)])
 
 def train(
     seed: int = 0,
@@ -148,8 +200,8 @@ def train(
         path.mkdir(parents=True, exist_ok=True)
 
     # Create the vectorized training and evaluation environments
-    train_env = create_vec_env(config["num_envs"], seed)
-    eval_env = create_vec_env(1, seed + config["num_envs"]) # Use a different seed for eval
+    train_env = create_vec_env(config["num_envs"], seed, config)
+    eval_env = create_vec_env(1, seed + config["num_envs"], config) # Use a different seed for eval
 
     # Set up callbacks for evaluation and checkpointing
     eval_callback = EvalCallback(
@@ -194,7 +246,7 @@ def train(
         logger.info(f"Starting training session: {session_name}")
         model.learn(
             total_timesteps=config["total_timesteps"],
-            callback=[eval_callback, checkpoint_callback],
+            callback=[eval_callback, checkpoint_callback, TrainingMetricsCallback()],
             progress_bar=True
         )
     except KeyboardInterrupt:

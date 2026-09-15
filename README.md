@@ -110,7 +110,25 @@ tensorboard --logdir logs/tensorboard
 
 Navigate to `http://localhost:6006` in your browser.
 
-### 2. Running the Interactive Web Interface
+### 3. Reproducible improvement experiments
+
+The tested environment/reward/PPO improvements and measured results are documented in [`docs/IMPROVEMENT-REPORT.md`](./docs/IMPROVEMENT-REPORT.md).
+
+Optuna PPO tuning:
+
+```bash
+python tools/tune_ppo.py --study-name ppo_capacity_tuning_v1 --trials 12 --timesteps 160000
+```
+
+Mixed-traffic training:
+
+```bash
+python tools/train_mixed_rate.py --seed 23 --timesteps 2000000 --rate-low 0.05 --rate-high 0.50 --delivery-weight 0.30 --session-id mixed_rate_delivery_2m
+```
+
+Optuna Dashboard: `http://localhost:6007`.
+
+### 4. Running the Interactive Web Interface
 
 Launch the Flask web application to see the environment in action.
 

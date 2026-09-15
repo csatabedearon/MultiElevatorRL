@@ -62,6 +62,9 @@ max_simulation_steps = 1000   # Maximum steps for a simulation episode
 using_model = False           # Flag indicating if a trained model is in use
 num_elevators = 3             # Default number of elevators
 num_floors = 10               # Default number of floors
+include_waiting_ages = False  # Legacy web models do not expose waiting ages
+max_passengers_per_elevator = None  # None preserves legacy unlimited capacity
+include_elevator_loads = False
 
 # --- Scenario-Specific State ---
 passenger_scenario = None     # Stores the loaded passenger arrival scenario
@@ -75,21 +78,39 @@ def adjust_environment_for_model() -> None:
     elevators must match the observation space the model was trained on. This function
     ensures that consistency.
     """
-    global num_elevators, num_floors, env, model
+    global num_elevators, num_floors, include_waiting_ages
+    global max_passengers_per_elevator, include_elevator_loads, env, model
     if model is None:
         return
     try:
-        # Extract the expected shape from the model's observation space
-        expected_shape = model.policy.observation_space.spaces['elevator_buttons'].shape
+        # Extract the expected shape and keys from the model's observation space
+        expected_spaces = model.policy.observation_space.spaces
+        expected_shape = expected_spaces['elevator_buttons'].shape
         expected_floors, expected_elevators = expected_shape
+        expected_include_waiting_ages = 'waiting_ages' in expected_spaces
+        expected_load_space = expected_spaces.get('elevator_loads')
+        expected_include_elevator_loads = expected_load_space is not None
+        expected_capacity = (
+            int(expected_load_space.high[0]) if expected_load_space is not None else None
+        )
 
-        if (num_floors, num_elevators) != (expected_floors, expected_elevators):
+        if ((num_floors, num_elevators) != (expected_floors, expected_elevators) or
+                include_waiting_ages != expected_include_waiting_ages or
+                include_elevator_loads != expected_include_elevator_loads or
+                max_passengers_per_elevator != expected_capacity):
             logger.info(
-                f"Model requires {expected_floors} floors and {expected_elevators} elevators. "
-                f"Adjusting environment from {num_floors} floors and {num_elevators} elevators."
+                f"Model requires {expected_floors} floors, {expected_elevators} elevators, "
+                f"waiting ages={expected_include_waiting_ages}, "
+                f"elevator loads={expected_include_elevator_loads}, capacity={expected_capacity}. "
+                f"Adjusting environment from {num_floors} floors, {num_elevators} elevators, "
+                f"waiting ages={include_waiting_ages}, elevator loads={include_elevator_loads}, "
+                f"capacity={max_passengers_per_elevator}."
             )
             num_floors = expected_floors
             num_elevators = expected_elevators
+            include_waiting_ages = expected_include_waiting_ages
+            include_elevator_loads = expected_include_elevator_loads
+            max_passengers_per_elevator = expected_capacity
             init_environment()  # Re-initialize the environment with the new settings
     except Exception as e:
         logger.exception(f"Error adjusting environment for model: {e}")
@@ -102,7 +123,8 @@ def init_environment() -> None:
     global configuration (e.g., number of elevators, floors, and scenario).
     It is thread-safe.
     """
-    global env, passenger_scenario, scenario_mode_active
+    global env, passenger_scenario, scenario_mode_active, include_waiting_ages
+    global max_passengers_per_elevator, include_elevator_loads
     with state_lock:
         logger.debug(
             f"Initializing environment: {num_elevators} elevators, {num_floors} floors, Scenario Mode: {scenario_mode_active}"
@@ -115,6 +137,9 @@ def init_environment() -> None:
             passenger_rate=0.1,  # Ignored if a scenario is active
             num_elevators=num_elevators,
             num_floors=num_floors,
+            include_waiting_ages=include_waiting_ages,
+            max_passengers_per_elevator=max_passengers_per_elevator,
+            include_elevator_loads=include_elevator_loads,
             scenario=current_scenario
         )
         env.reset()
@@ -414,7 +439,8 @@ def reset_simulation():
     This stops any active simulation, unloads any model or scenario, and resets
     the environment to its initial default state.
     """
-    global model, using_model, passenger_scenario, scenario_mode_active
+    global model, using_model, passenger_scenario, scenario_mode_active, include_waiting_ages
+    global max_passengers_per_elevator, include_elevator_loads
     stop_simulation()
 
     with state_lock:
@@ -422,6 +448,9 @@ def reset_simulation():
         using_model = False
         passenger_scenario = None
         scenario_mode_active = False
+        include_waiting_ages = False
+        max_passengers_per_elevator = None
+        include_elevator_loads = False
         init_environment()  # Reset to default environment
 
     logger.info("Simulation reset to default state.")

@@ -22,6 +22,11 @@ TRAINING_CONFIG: Dict[str, Any] = {
     "num_floors": 5,                 # Number of floors in the environment
     "max_steps": 500,                # Maximum steps per episode before truncation
     "passenger_rate": 0.1,           # Probability of a new passenger arriving at any floor per step
+    "include_waiting_ages": True,    # Expose oldest waiting age to the new training policy
+    "passenger_rate_range": None,    # Optional episode-level traffic randomization
+    "include_passenger_rate": False,
+    "max_passengers_per_elevator": 8,
+    "include_elevator_loads": True,
 
     # --- Training Control Parameters ---
     "total_timesteps": 1_000_000,    # Total number of timesteps to train the model
